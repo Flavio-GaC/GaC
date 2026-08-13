@@ -80,6 +80,25 @@ h3 {{ font-size: 1.15rem !important; }}
 [data-testid="stSidebar"] h3 {{ color: #FFFFFF; }}
 [data-testid="stSidebar"] hr {{ border-color: rgba(255,255,255,.10); }}
 
+/* RODAPÉ */
+.custom-footer {{
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-soft);
+}}
+.custom-footer a {{
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: rgba(148, 163, 184, 0.3);
+  transition: color 0.2s ease;
+}}
+.custom-footer a:hover {{
+  color: var(--ink);
+}}
+
 /* Itens de navegação (radio) como menu moderno */
 [data-testid="stSidebar"] [role="radiogroup"] {{ gap: .25rem; }}
 [data-testid="stSidebar"] [role="radiogroup"] label {{
@@ -313,3 +332,15 @@ def estado_vazio(titulo, descricao, icone="🗂️"):
 
 def titulo_secao(texto):
     st.markdown(f'<div class="section-title">{_e(texto)}</div>', unsafe_allow_html=True)
+
+
+def rodape():
+    st.markdown(
+        """
+        <div class="custom-footer">
+            © 2026 Grupo Adriano Cobuccio. Todos os direitos reservados. <br>
+            Desenvolvido por <a href="https://linktr.ee/flaviodavi" target="_blank">Flávio Davi</a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
