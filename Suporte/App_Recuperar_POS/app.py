@@ -2,12 +2,21 @@ import streamlit as st
 from supabase import create_client, Client
 
 # Importa as telas
+from theme import aplicar_tema, LOGO_URL
 from login import mostrar_login
 from home import mostrar_home
 from cadastro import mostrar_cadastro
 from novo_usuario import mostrar_novo_usuario
 
-st.set_page_config(page_title="Sistema de Devoluções", page_icon="https://i.imgur.com/eG4PhxC.png")
+st.set_page_config(
+    page_title="Sistema de Devoluções",
+    page_icon="https://i.imgur.com/eG4PhxC.png",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+aplicar_tema()
+
 
 @st.cache_resource
 def init_connection() -> Client:
@@ -28,7 +37,7 @@ else:
     uid = st.session_state.get("uid")
     nome_logado = ""
     nivel_acesso = 4 # Define nível restrito como padrão por segurança
-    
+
     # 1. Busca os dados do usuário de forma segura APÓS o login
     if uid:
         try:
@@ -39,17 +48,51 @@ else:
         except Exception as e:
             pass
 
-    st.sidebar.title("Menu")
-    menu = st.sidebar.radio("Navegação", ["Home", "Registrar Devolução", "Novo Usuário"])
-    
-    if nome_logado:
-        st.sidebar.markdown("---")
-        st.sidebar.markdown(f"**Logado como:**<br>{nome_logado}", unsafe_allow_html=True)
+    NOMES_NIVEIS = {1: "Admin", 2: "Coordenador/Gestor", 3: "Supervisor", 4: "Operador"}
 
-    if st.sidebar.button("Sair"):
-        supabase.auth.sign_out()
-        st.session_state.clear() # Limpa a sessão por completo
-        st.rerun()
+    with st.sidebar:
+        st.markdown(
+            f'<div class="sb-brand"><img src="{LOGO_URL}" width="120" alt="Logotipo"></div>',
+            unsafe_allow_html=True,
+        )
+
+        st.markdown('<div class="section-title">Navegação</div>', unsafe_allow_html=True)
+        opcoes_menu = ["Home", "Registrar Devolução"]
+        if nivel_acesso < 4:
+            opcoes_menu.append("Novo Usuário")
+
+        menu = st.radio(
+            "Navegação",
+            opcoes_menu,
+            format_func=lambda item: {
+                "Home": "📊  Home",
+                "Registrar Devolução": "📦  Registrar Devolução",
+                "Novo Usuário": "👤  Novo Usuário",
+            }[item],
+            label_visibility="collapsed",
+        )
+
+        st.markdown("---")
+
+        if nome_logado:
+            iniciais = "".join([p[0] for p in nome_logado.split()[:2]]).upper()
+            st.markdown(
+                f"""<div class="sb-user">
+                      <div class="sb-avatar">{iniciais}</div>
+                      <div>
+                        <small>Logado como</small>
+                        <strong>{nome_logado}</strong>
+                        <small>{NOMES_NIVEIS.get(nivel_acesso, "Operador")}</small>
+                      </div>
+                    </div>""",
+                unsafe_allow_html=True,
+            )
+
+        st.write("")
+        if st.button("Sair", use_container_width=True):
+            supabase.auth.sign_out()
+            st.session_state.clear() # Limpa a sessão por completo
+            st.rerun()
 
     # 2. Exibição das telas usando a variável nivel_acesso extraída corretamente
     if menu == "Home":
@@ -58,6 +101,6 @@ else:
         mostrar_cadastro(supabase)
     elif menu == "Novo Usuário":
         if nivel_acesso < 4:
-            mostrar_novo_usuario(supabase) 
+            mostrar_novo_usuario(supabase)
         else:
             st.error("Nível de acesso insuficiente para acesso.")
