@@ -38,9 +38,9 @@ def aplicar_tema():
 }}
 
 /* Oculta o cabeçalho superior (Fork, GitHub, Menu) */
-[data-testid="stHeader"], [data-testid="stToolbar"] {
+[data-testid="stHeader"], [data-testid="stToolbar"] {{
     display: none !important;
-}
+}}
 
 html, body, [class*="css"], .stApp {{
   font-family: 'Inter', -apple-system, "Segoe UI", sans-serif;
