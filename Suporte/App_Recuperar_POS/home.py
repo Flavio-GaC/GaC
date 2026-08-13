@@ -34,7 +34,7 @@ def mostrar_home(supabase):
     with col_f2:
         filtro_tipo = st.selectbox("Filtrar por Tipo", ["Todos", "PAC", "COLETA"])
     with col_f3:
-        limite = st.selectbox("Quantidade de registros", [50, 100, 500])
+        limite = st.selectbox("Quantidade de registros", [10, 50, 100])
 
     if st.button("Buscar Dados", type="primary"):
         with st.spinner("Buscando dados no Supabase..."):
@@ -56,43 +56,43 @@ def mostrar_home(supabase):
                     for linha in dados:
                         with st.container(border=True):
                             # Cabeçalho do Card
-                            st.subheader(f"🏢 PDV: {linha.get('pdv', 'N/A')} - {linha.get('nome_fantasia', 'N/A')}")
+                            st.subheader(f"PDV: {linha.get('pdv', 'N/A')} - {linha.get('nome_fantasia', 'N/A')}")
                             
                             # Divide as informações em 3 colunas dentro do quadro
                             c1, c2, c3 = st.columns(3)
                             
                             with c1:
-                                st.markdown(f"**📅 Data/Hora:** {formatar_data(linha.get('data_hora'))}")
-                                st.markdown(f"**🔄 Tipo:** {linha.get('tipo_devolucao', 'N/A')}")
-                                st.markdown(f"**⚠️ Motivo:** {linha.get('motivo', 'N/A')}")
-                                st.markdown(f"**👤 Consultor:** {linha.get('consultor', 'N/A')}")
-                                st.markdown(f"**🏢 Setor:** {linha.get('setor', 'N/A')}")
-                                st.markdown(f"**📧 Registrado por:** {linha.get('email', 'N/A')}")
+                                st.markdown(f"**Data/Hora:** {formatar_data(linha.get('data_hora'))}")
+                                st.markdown(f"**Tipo:** {linha.get('tipo_devolucao', 'N/A')}")
+                                st.markdown(f"**Motivo:** {linha.get('motivo', 'N/A')}")
+                                st.markdown(f"**Consultor:** {linha.get('consultor', 'N/A')}")
+                                st.markdown(f"**Setor:** {linha.get('setor', 'N/A')}")
+                                st.markdown(f"**Registrado por:** {linha.get('email', 'N/A')}")
                             
                             with c2:
                                 qtd = linha.get('qtd') or 0
                                 valor_unitario = linha.get('valor_reais') or 0
                                 valor_total = qtd * float(valor_unitario)
                                 
-                                st.markdown(f"**💻 Modelo:** {linha.get('modelo', 'N/A')}")
-                                st.markdown(f"**📦 Qtd:** {qtd}")
+                                st.markdown(f"**Modelo:** {linha.get('modelo', 'N/A')}")
+                                st.markdown(f"**Qtd:** {qtd}")
                                 
                                 # Formatação de moeda estilo BR
                                 valor_formatado = f"R$ {valor_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                                st.markdown(f"**💰 Valor Total:** {valor_formatado}")
+                                st.markdown(f"**Valor Total:** {valor_formatado}")
                                 
                                 # Exibição condicional de PAC / Rastreio
                                 tipo = linha.get('tipo_devolucao')
                                 if tipo == "PAC" and linha.get("cod_pac"):
-                                    st.markdown(f"**📮 Cód. PAC:** `{linha.get('cod_pac')}`")
+                                    st.markdown(f"**Cód. PAC:** `{linha.get('cod_pac')}`")
                                 elif tipo == "COLETA" and linha.get("cod_rastreio"):
-                                    st.markdown(f"**🚚 Cód. Rastreio:** `{linha.get('cod_rastreio')}`")
+                                    st.markdown(f"**Cód. Rastreio:** `{linha.get('cod_rastreio')}`")
                                     
                             with c3:
-                                st.markdown(f"**🤝 Cliente:** {linha.get('cliente', 'N/A')}")
-                                st.markdown(f"**📍 Endereço:** {linha.get('endereco', 'N/A')}")
-                                st.markdown(f"**🏙️ Cidade/UF:** {linha.get('cidade', 'N/A')} - {linha.get('uf', 'N/A')}")
-                                st.markdown(f"**📮 CEP:** {linha.get('cep', 'N/A')}")
+                                st.markdown(f"**Cliente:** {linha.get('cliente', 'N/A')}")
+                                st.markdown(f"**Endereço:** {linha.get('endereco', 'N/A')}")
+                                st.markdown(f"**Cidade/UF:** {linha.get('cidade', 'N/A')} - {linha.get('uf', 'N/A')}")
+                                st.markdown(f"**CEP:** {linha.get('cep', 'N/A')}")
                                 
                 else:
                     st.warning("Nenhum registro encontrado com os parâmetros atuais.")
