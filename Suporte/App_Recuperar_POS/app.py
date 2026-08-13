@@ -7,7 +7,7 @@ from home import mostrar_home
 from cadastro import mostrar_cadastro
 from novo_usuario import mostrar_novo_usuario
 
-st.set_page_config(page_title="Sistema de Devoluções", layout="wide", page_icon="https://i.imgur.com/eG4PhxC.png")
+st.set_page_config(page_title="Sistema de Devoluções", page_icon="https://i.imgur.com/eG4PhxC.png")
 
 @st.cache_resource
 def init_connection() -> Client:
