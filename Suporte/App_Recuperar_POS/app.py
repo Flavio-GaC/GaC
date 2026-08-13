@@ -2,7 +2,7 @@ import streamlit as st
 from supabase import create_client, Client
 
 # Importa as telas
-from theme import aplicar_tema, LOGO_URL
+from theme import aplicar_tema, LOGO_URL, rodape
 from login import mostrar_login
 from home import mostrar_home
 from cadastro import mostrar_cadastro
@@ -104,3 +104,4 @@ else:
             mostrar_novo_usuario(supabase)
         else:
             st.error("Nível de acesso insuficiente para acesso.")
+    rodape()
