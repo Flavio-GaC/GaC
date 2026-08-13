@@ -42,6 +42,16 @@ def aplicar_tema():
     display: none !important;
 }}
 
+/* Oculta o botão de Deploy (barquinho) e o menu do desenvolvedor */
+[data-testid="stAppDeployButton"] {{
+    display: none !important;
+}}
+
+/* Oculta o rodapé padrão do Streamlit */
+footer {{
+    display: none !important;
+}}
+
 html, body, [class*="css"], .stApp {{
   font-family: 'Inter', -apple-system, "Segoe UI", sans-serif;
 }}
