@@ -57,7 +57,7 @@ def mostrar_login(supabase):
         st.markdown(
             """
             <div style="display: flex; justify-content: center; margin-bottom: 14px;">
-                <img src="https://i.imgur.com/eG4PhxC.png" width="130" alt="Logotipo">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSk-QaUmTV7hcYg5cDpuEUoLCfscN-OVuiCZcJukputzg&s=10" width="130" alt="Logotipo">
             </div>
             <div class="login-title">
                 <h3>GaC - Teresina-Pi</h3>
