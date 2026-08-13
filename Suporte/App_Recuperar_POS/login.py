@@ -60,7 +60,7 @@ def mostrar_login(supabase):
                 <img src="https://i.imgur.com/eG4PhxC.png" width="130" alt="Logotipo">
             </div>
             <div class="login-title">
-                <h3>Sistema de Devoluções</h3>
+                <h3>GaC - Teresina-Pi</h3>
                 <p>Acesse com suas credenciais corporativas</p>
             </div>
             """,
