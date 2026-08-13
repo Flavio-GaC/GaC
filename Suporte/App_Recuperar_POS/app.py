@@ -9,7 +9,7 @@ from cadastro import mostrar_cadastro
 from novo_usuario import mostrar_novo_usuario
 
 st.set_page_config(
-    page_title="Sistema de Devoluções",
+    page_title="ERP GaC",
     page_icon="https://i.imgur.com/eG4PhxC.png",
     layout="wide",
     initial_sidebar_state="expanded",
