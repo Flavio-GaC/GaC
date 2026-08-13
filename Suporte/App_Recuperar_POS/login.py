@@ -45,7 +45,7 @@ def mostrar_login(supabase):
         st.markdown(
             """
             <div style="display: flex; justify-content: center; margin-bottom: 10px;">
-                <img src="https://i.imgur.com/eG4PhxC.png" width="130">
+                <img src="https://grupoadrianocobuccio.com.br/images/logo.png" width="130">
             </div>
             """, 
             unsafe_allow_html=True
