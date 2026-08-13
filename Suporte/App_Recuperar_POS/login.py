@@ -5,7 +5,7 @@ def mostrar_login(supabase):
     <style>
     /* Fundo com a sede e filtro escuro */
     [data-testid="stAppViewContainer"] {
-        background-image: url("https://www.brasilcard.net/assets/images/foto-sede.jpg");
+        background-image: url("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSC0DfFa95WBLmCOe18otwHbSQI2wMQACw0PIMv24wAIw&s=10");
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
