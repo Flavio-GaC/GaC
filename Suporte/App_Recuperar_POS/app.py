@@ -108,7 +108,7 @@ else:
         ]
     # ACESSOS BRASILCARD
     elif empresa_id == 1:
-        if nivel_acesso > 4:
+        if nivel_acesso < 4:
             paginas["BrasilCard"] = [
                         st.Page(render_meet, title="Meets", icon="🎥"),
                         st.Page(render_usuario, title="Cadastrar Usuário", icon="👤")
@@ -119,7 +119,7 @@ else:
                     ]
     # ACESSOS BOLT
     elif empresa_id == 2:
-        if nivel_acesso > 4:
+        if nivel_acesso < 4:
             paginas["Bolt"] = [
                         st.Page(render_devolucao_dashboard, title="Dashboard Devoluções", icon="📈"),
                         st.Page(render_devolucao_maquinas, title="Registrar Devolução", icon="📦"),
