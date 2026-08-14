@@ -40,7 +40,7 @@ if "tema" not in st.session_state:
 aplicar_tema()
 
 # Logo nativa acima do menu (Suportado pelo st.navigation)
-st.logo(LOGO_URL, size="large")
+st.logo(LOGO_URL, icon_image=LOGO_URL, size="large")
 
 
 # --- ENVOLTÓRIOS DE PÁGINAS ---
