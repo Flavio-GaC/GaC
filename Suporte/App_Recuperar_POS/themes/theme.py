@@ -1,8 +1,6 @@
 import html as _html
 import streamlit as st
 
-
-
 LOGO_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSk-QaUmTV7hcYg5cDpuEUoLCfscN-OVuiCZcJukputzg&s=10"
 
 def aplicar_tema():
@@ -23,14 +21,14 @@ def aplicar_tema():
     else:
         PRIMARIA = "#0B5FFF"
         PRIMARIA_ESCURA = "#0846C4"
-        TEXTO = "#0F172A"       # Texto bem escuro para alto contraste
-        TEXTO_SUAVE = "#475569" # Cinza escuro para textos secundários
-        BORDA = "#CBD5E1"       # Borda visível no tema claro
-        FUNDO = "#F8FAFC"       # Fundo cinza bem gelo
-        SUPERFICIE = "#FFFFFF"  # Cards e inputs brancos
+        TEXTO = "#0F172A"       
+        TEXTO_SUAVE = "#475569" 
+        BORDA = "#CBD5E1"       
+        FUNDO = "#F8FAFC"       
+        SUPERFICIE = "#FFFFFF"  
         RAIO = "12px"
         SOMBRA = "0 1px 2px rgba(16,24,40,.05), 0 8px 24px -12px rgba(16,24,40,.18)"
-        INK_LABEL = "#1E293B"   # Labels (títulos dos campos) escuros
+        INK_LABEL = "#1E293B"   
 
     st.markdown(
         f"""<style>
@@ -60,7 +58,7 @@ h1 {{ font-size: 1.9rem !important; }}
 h2 {{ font-size: 1.4rem !important; }}
 h3 {{ font-size: 1.15rem !important; }}
 
-/* FORÇA O TEXTO DA ÁREA PRINCIPAL (Evita o texto branco nos alertas e forms) */
+/* FORÇA O TEXTO DA ÁREA PRINCIPAL */
 .block-container [data-testid="stMarkdownContainer"] p,
 .block-container [data-testid="stMarkdownContainer"] h1,
 .block-container [data-testid="stMarkdownContainer"] h2,
@@ -70,7 +68,6 @@ h3 {{ font-size: 1.15rem !important; }}
     color: var(--ink) !important;
 }}
 
-
 /* =========================================
    SIDEBAR (SEMPRE ESCURA E INDEPENDENTE)
 ========================================= */
@@ -78,7 +75,6 @@ h3 {{ font-size: 1.15rem !important; }}
   background: #0B1220 !important;
   border-right: 1px solid rgba(255,255,255,.06) !important;
 }}
-/* Força textos e títulos gerais da Sidebar para claro */
 [data-testid="stSidebar"] * {{ color: #E2E8F0; }}
 [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {{ color: #FFFFFF !important; }}
 [data-testid="stSidebar"] hr {{ border-color: rgba(255,255,255,.10) !important; }}
@@ -96,27 +92,73 @@ h3 {{ font-size: 1.15rem !important; }}
 .sb-user small {{ color:#94A3B8 !important; display:block; line-height:1.1; }}
 .sb-user strong {{ font-size:.88rem; line-height:1.25; color: #FFFFFF !important; }}
 
-/* COMPORTAMENTO RETRÁTIL DA SIDEBAR */
+/* =========================================
+   COMPORTAMENTO RETRÁTIL (ESTÁVEL E QUADRADO)
+========================================= */
+/* 1. Trava a Sidebar recolhida em 80px e mantém visível */
 [data-testid="stSidebar"][aria-expanded="false"] {{
-    transform: translateX(0px) !important; width: 80px !important; min-width: 80px !important; visibility: visible !important;
+    transform: translateX(0px) !important;
+    width: 80px !important;
+    min-width: 80px !important;
+    visibility: visible !important;
 }}
-[data-testid="stSidebar"][aria-expanded="false"] .section-title,
-[data-testid="stSidebar"][aria-expanded="false"] [role="radiogroup"],
+
+/* 2. Mantém o conteúdo interno visível */
+[data-testid="stSidebar"][aria-expanded="false"] > div {{
+    opacity: 1 !important;
+    visibility: visible !important;
+}}
+
+/* 3. Ajusta a posição do botão de abrir/fechar */
+[data-testid="collapsedControl"] {{
+    left: 80px !important;
+}}
+
+/* 4. Oculta área do usuário e botão de sair */
 [data-testid="stSidebar"][aria-expanded="false"] .sb-user,
-[data-testid="stSidebar"][aria-expanded="false"] .stButton,
-[data-testid="stSidebar"][aria-expanded="false"] hr {{ display: none !important; }}
-[data-testid="stSidebar"][aria-expanded="false"] .sb-brand img {{ width: 45px !important; }}
-[data-testid="collapsedControl"] {{ left: 80px !important; }}
+[data-testid="stSidebar"][aria-expanded="false"] .stButton {{
+    display: none !important;
+}}
+
+/* 6. Formata a aba do menu em um Quadrado Perfeito e centraliza */
+[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stSidebarNav"] a {{
+    width: 44px !important;
+    height: 44px !important;
+    margin: 0 auto 0.4rem auto !important;
+    padding: 0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    border-radius: 10px !important;
+}}
+
+/* 7. Esconde APENAS o texto do botão, salvando o Emoji (ícone) */
+[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stSidebarNav"] a span:nth-of-type(2) {{
+    display: none !important;
+}}
+
+/* 8. Garante que o Emoji fique perfeitamente no centro do quadrado */
+[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stSidebarNav"] a span:first-child {{
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 0 !important;
+}}
+
+/* 9. Garante que a Logo reduzida fique no centro */
+[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stLogo"] {{
+    display: flex !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+}}
 
 /* =========================================
    NAVEGAÇÃO NATIVA DO STREAMLIT (st.navigation)
 ========================================= */
-/* Fundo transparente para o menu nativo */
 [data-testid="stSidebarNav"], [data-testid="stSidebarNav"] > div {{
     background-color: transparent !important;
 }}
-
-/* Estiliza os links (Opções) do menu */
 [data-testid="stSidebarNav"] a {{
     display: flex;
     align-items: center;
@@ -125,26 +167,20 @@ h3 {{ font-size: 1.15rem !important; }}
     border: 1px solid transparent !important;
     background-color: transparent !important;
     transition: all 0.2s ease;
-    color: #94A3B8 !important; /* Cor inativa */
+    color: #94A3B8 !important; 
     font-weight: 500 !important;
     text-decoration: none !important;
     margin-bottom: 0.25rem;
 }}
-
-/* Efeito Hover (passar o mouse) */
 [data-testid="stSidebarNav"] a:hover {{
     background-color: rgba(255,255,255, 0.05) !important;
 }}
-
-/* Item Selecionado (Página Atual) */
 [data-testid="stSidebarNav"] a[aria-current="page"] {{
     background-color: rgba(11, 95, 255, 0.15) !important;
     border: 1px solid var(--brand) !important;
     color: #FFFFFF !important;
     font-weight: 700 !important;
 }}
-
-/* Estiliza os títulos das categorias (Ex: "Menu Principal", "Bolt") */
 [data-testid="stSidebarNav"] ul li div {{
     color: var(--ink-soft) !important;
     font-size: 0.72rem !important;
@@ -155,13 +191,11 @@ h3 {{ font-size: 1.15rem !important; }}
     margin-top: 0.8rem;
     margin-bottom: 0.4rem;
 }}
-
-/* Remove a linha nativa estranha do Streamlit */
 [data-testid="stSidebarNav"] hr {{
     display: none !important;
 }}
 
-/* BOTÃO DE SAIR (Fixo escuro para a Sidebar) */
+/* BOTÃO DE SAIR */
 [data-testid="stSidebar"] .stButton > button {{
   background-color: rgba(255, 255, 255, 0.05) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -174,11 +208,9 @@ h3 {{ font-size: 1.15rem !important; }}
   color: #FFFFFF !important;
 }}
 
-
 /* =========================================
    ÁREA PRINCIPAL E COMPONENTES GERAIS
 ========================================= */
-/* BOTÕES GERAIS */
 .stButton > button, .stFormSubmitButton > button, .stDownloadButton > button {{
   border-radius: 10px; font-weight: 600; padding: .55rem 1.1rem; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink); transition: all .15s ease; box-shadow: none;
@@ -194,7 +226,6 @@ h3 {{ font-size: 1.15rem !important; }}
   background: var(--brand-dark) !important; border-color: var(--brand-dark) !important; color:#FFFFFF !important;
 }}
 
-/* CAMPOS DE INPUT PADRÕES */
 label, .stTextInput label, .stSelectbox label, .stNumberInput label, .stDateInput label, .stTimeInput label, .stTextArea label {{
   font-weight: 600 !important; font-size: .84rem !important; color: var(--ink-label) !important;
 }}
@@ -209,7 +240,6 @@ label, .stTextInput label, .stSelectbox label, .stNumberInput label, .stDateInpu
 /* =========================================
    FORÇA BRUTA - SELECTBOX 
 ========================================= */
-/* 1. A caixa principal onde o usuário clica */
 .stSelectbox div[data-baseweb="select"] > div {{
   background-color: var(--surface) !important;
   border: 1px solid var(--line) !important;
@@ -221,8 +251,6 @@ label, .stTextInput label, .stSelectbox label, .stNumberInput label, .stDateInpu
 .stSelectbox svg {{
   fill: var(--ink-soft) !important;
 }}
-
-/* 2. O menu suspenso (Dropdown que abre flutuando na tela) */
 div[data-baseweb="popover"] > div,
 div[data-baseweb="popover"] > div > div,
 ul[data-baseweb="menu"],
@@ -230,8 +258,6 @@ ul[role="listbox"] {{
   background-color: var(--surface) !important;
   border: 1px solid var(--line) !important;
 }}
-
-/* 3. Os itens dentro do menu suspenso */
 ul[data-baseweb="menu"] li,
 ul[role="listbox"] li {{
   color: var(--ink) !important;
@@ -243,7 +269,7 @@ ul[role="listbox"] li:hover {{
   color: var(--ink) !important;
 }}
 
-/* FORMULÁRIOS, CONTAINERS E ALERTAS */
+/* FORMULÁRIOS E ALERTAS */
 [data-testid="stForm"] {{
   background-color: var(--surface); border: 1px solid var(--line); border-radius: 14px;
   padding: 1.4rem 1.4rem .6rem; box-shadow: var(--shadow);
@@ -255,8 +281,7 @@ ul[role="listbox"] li:hover {{
   border-radius: 12px; border: 1px solid var(--line) !important; 
 }}
 
-
-/* CLASSES CUSTOMIZADAS (Dashboard, Timeline, etc) */
+/* CLASSES CUSTOMIZADAS */
 .page-head {{ display:flex; flex-wrap:wrap; gap:.75rem 1rem; align-items:flex-start; justify-content:space-between; margin-bottom: 1.2rem; }}
 .page-head h1 {{ margin:0 0 .2rem 0; }}
 .page-head p {{ margin:0; color: var(--ink-soft); font-size:.92rem; }}
@@ -297,7 +322,6 @@ ul[role="listbox"] li:hover {{
 .tl-value {{ font-weight: 600; color: var(--ink); }}
 .tl-obs {{ background-color: var(--bg); padding: 0.8rem; border-radius: 6px; font-style: italic; font-size: 0.85rem; color: var(--ink-soft); border-left: 3px solid var(--line); }}
 
-/* RESPONSIVO */
 @media (max-width: 640px) {{
   .block-container {{ padding-left: 1rem; padding-right: 1rem; padding-top: 1rem; }}
   h1 {{ font-size: 1.5rem !important; }}
@@ -305,6 +329,7 @@ ul[role="listbox"] li:hover {{
   [data-testid="stForm"] {{ padding: 1rem 1rem .4rem; }}
   [data-testid="column"] {{ min-width: 100% !important; }}
 }}
+
 </style>
 """,
         unsafe_allow_html=True,
@@ -314,7 +339,6 @@ ul[role="listbox"] li:hover {{
 def _e(valor):
     return _html.escape(str(valor if valor not in (None, "") else "N/A"))
 
-
 def cabecalho_pagina(titulo, subtitulo=""):
     st.markdown(
         f"""<div class="page-head"><div>
@@ -323,7 +347,6 @@ def cabecalho_pagina(titulo, subtitulo=""):
         </div></div>""",
         unsafe_allow_html=True,
     )
-
 
 def kpi(label, valor, dica=""):
     st.markdown(
@@ -335,7 +358,6 @@ def kpi(label, valor, dica=""):
         unsafe_allow_html=True,
     )
 
-
 def badge(texto):
     t = (texto or "").upper()
     classe = "badge-pac" if t == "PAC" else "badge-coleta" if t == "COLETA" else "badge-neutro"
@@ -345,7 +367,6 @@ def tema_login():
     """Injeta exclusivamente o visual da tela de login (fundo, cartão e textos)."""
     css = """
     <style>
-    /* Fundo com a sede e filtro escuro */
     [data-testid="stAppViewContainer"] {
         background-image: linear-gradient(rgba(6,12,26,.72), rgba(6,12,26,.72)),
                           url("https://www.brasilcard.net/assets/images/foto-sede.jpg");
@@ -354,13 +375,9 @@ def tema_login():
         background-repeat: no-repeat;
         background-attachment: fixed;
     }
-
     [data-testid="stHeader"] { background: transparent; }
     [data-testid="stSidebar"] { display: none; }
-
     .block-container { padding-top: 6vh; max-width: 1100px; }
-
-    /* Cartão de login */
     [data-testid="column"]:nth-child(2) {
         background-color: #FFFFFF;
         padding: 2.5rem 2.25rem;
@@ -368,21 +385,15 @@ def tema_login():
         box-shadow: 0 24px 60px -20px rgba(0,0,0,.65);
         border: 1px solid rgba(255,255,255,.6);
     }
-
-    /* Força os textos e labels dentro do cartão a ficarem escuros */
     [data-testid="column"]:nth-child(2) h1,
     [data-testid="column"]:nth-child(2) h3,
     [data-testid="column"]:nth-child(2) h4,
     [data-testid="column"]:nth-child(2) label,
     [data-testid="column"]:nth-child(2) p { color: #0F172A !important; }
-
     .login-title { text-align:center; margin-bottom:1.25rem; }
     .login-title h3 { margin:0 0 .25rem; font-size:1.25rem; font-weight:700; }
     .login-title p { margin:0; font-size:.88rem; color:#64748B !important; }
-    .login-foot {
-        text-align:center; margin-top:1.25rem; font-size:.75rem; color:#94A3B8 !important;
-    }
-
+    .login-foot { text-align:center; margin-top:1.25rem; font-size:.75rem; color:#94A3B8 !important; }
     @media (max-width: 640px) {
         .block-container { padding: 1.5rem 1rem; }
         [data-testid="column"]:nth-child(2) { padding: 1.75rem 1.25rem; }
@@ -401,7 +412,6 @@ def campo(rotulo, valor, mono=False):
         unsafe_allow_html=True,
     )
 
-
 def estado_vazio(titulo, descricao, icone="🗂️"):
     st.markdown(
         f"""<div class="empty">
@@ -412,10 +422,8 @@ def estado_vazio(titulo, descricao, icone="🗂️"):
         unsafe_allow_html=True,
     )
 
-
 def titulo_secao(texto):
     st.markdown(f'<div class="section-title">{_e(texto)}</div>', unsafe_allow_html=True)
-
 
 def rodape():
     st.markdown(
@@ -437,48 +445,14 @@ def tema_home():
         text-align: center;
         margin-bottom: 2.5rem;
     }
-    .home-header {
-        max-width: 56rem;
-        margin: 0 auto 1.5rem;
-    }
-    .home-h2 {
-        font-size: 1.75rem;
-        font-weight: 300;
-        color: var(--ink);
-        margin-bottom: 1rem;
-        line-height: 1.2;
-    }
-    .home-p {
-        font-size: 1.125rem;
-        color: var(--ink-soft);
-        line-height: 1.625;
-        margin-bottom: 1.5rem;
-    }
-    .home-h3 {
-        font-size: 1.25rem;
-        font-weight: 300;
-        color: var(--ink);
-        margin-bottom: 0.5rem;
-    }
-    .home-sub-p {
-        font-size: 1rem;
-        font-style: italic;
-        color: var(--ink-soft);
-    }
-    .home-sub-p b {
-        font-weight: 600;
-        color: var(--ink);
-    }
-    .home-grid-container {
-        max-width: 72rem;
-        margin: 0 auto;
-    }
-    .home-grid {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 1rem;
-    }
+    .home-header { max-width: 56rem; margin: 0 auto 1.5rem; }
+    .home-h2 { font-size: 1.75rem; font-weight: 300; color: var(--ink); margin-bottom: 1rem; line-height: 1.2; }
+    .home-p { font-size: 1.125rem; color: var(--ink-soft); line-height: 1.625; margin-bottom: 1.5rem; }
+    .home-h3 { font-size: 1.25rem; font-weight: 300; color: var(--ink); margin-bottom: 0.5rem; }
+    .home-sub-p { font-size: 1rem; font-style: italic; color: var(--ink-soft); }
+    .home-sub-p b { font-weight: 600; color: var(--ink); }
+    .home-grid-container { max-width: 72rem; margin: 0 auto; }
+    .home-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; }
     .home-card {
         border: 1px solid var(--line);
         background-color: var(--surface);
@@ -492,23 +466,9 @@ def tema_home():
         cursor: default;
         border-radius: 6px;
     }
-    .home-card:hover {
-        background-color: #002948;
-        border-color: #002948;
-        transform: translateY(-4px);
-    }
-    .home-card h5 {
-        font-size: 0.82rem;
-        text-transform: uppercase;
-        font-weight: 600;
-        text-align: center;
-        margin: 0;
-        color: var(--ink);
-        transition: color 0.25s ease-in-out;
-    }
-    .home-card:hover h5 {
-        color: #FFFFFF;
-    }
+    .home-card:hover { background-color: #002948; border-color: #002948; transform: translateY(-4px); }
+    .home-card h5 { font-size: 0.82rem; text-transform: uppercase; font-weight: 600; text-align: center; margin: 0; color: var(--ink); transition: color 0.25s ease-in-out; }
+    .home-card:hover h5 { color: #FFFFFF; }
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
