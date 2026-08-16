@@ -32,10 +32,24 @@ def mostrar_login(supabase):
                         "email": email,
                         "password": senha
                     })
-                    if resposta_auth.user:
-                        st.session_state["usuario_logado"] = True
-                        st.session_state["uid"] = resposta_auth.user.id
-                        st.rerun()
+
+                    uid = resposta_auth.user.id
+                    resp_usuario = supabase.table("usuarios").select("ativo, nivel_acesso").eq("id", uid).execute()
+
+                    if resp_usuario.data:
+                        dados_u = resp_usuario.data[0]
+                        
+                        # 2. VALIDA SE O USUÁRIO ESTÁ INATIVO
+                        if dados_u.get("ativo") is False:
+                            st.error("Acesso negado: sua conta está inativa. Entre em contato com o administrador.")
+                            # Força o logout do supabase para limpar a sessão fantasma
+                            supabase.auth.sign_out()
+                            st.stop() # Interrompe a execução para não logar
+                            
+                    # 3. SE ESTIVER ATIVO, SEGUE O FLUXO NORMAL DE LOGIN
+                    st.session_state["usuario_logado"] = True
+                    st.session_state["uid"] = uid
+                    st.rerun()
                 except Exception as e:
                     st.error("Credenciais inválidas. Tente novamente.")
 
