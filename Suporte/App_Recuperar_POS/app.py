@@ -7,10 +7,11 @@ from themes.theme import aplicar_tema, LOGO_URL, rodape
 # Importar rotas
 from routers.login import mostrar_login
 from routers.homepage import mostrar_home
-from routers.bolt.devolucao_maquinas import mostrar_devolucao
-from routers.bolt.devolucao_dashboard import mostrar_dashboard
+from routers.bolt.devolucao import mostrar_devolucao
 from routers.brasilcard.registro_meet import mostrar_meet
+from routers.brasilcard.dashboard_meets import mostrar_dashboard_meets
 from routers.cadastro_usuario import mostrar_novo_usuario
+from routers.lojistas import mostrar_lojistas
 
 
 # Configuração Base
@@ -26,7 +27,7 @@ if "supabase" not in st.session_state:
     URL_SUPABASE = st.secrets["SUPABASE_URL"]
     CHAVE_SUPABASE = st.secrets["SUPABASE_KEY"]
     st.session_state["supabase"] = create_client(URL_SUPABASE, CHAVE_SUPABASE)
-
+   
 # Resgata o cliente com a sessão do usuário logado
 supabase = st.session_state["supabase"]
 
@@ -42,6 +43,14 @@ aplicar_tema()
 # Logo nativa acima do menu (Suportado pelo st.navigation)
 st.logo(LOGO_URL, icon_image=LOGO_URL, size="large")
 
+mapa_cargos = {
+    0: "Desenvolvedor(a)",
+    1: "Gestor(a)",
+    2: "Coordenador(a)",
+    3: "Supervisor(a)",
+    4: "Monitor(a)",
+    5: "Operador(a)"
+}
 
 # --- ENVOLTÓRIOS DE PÁGINAS ---
 def render_login():
@@ -53,14 +62,17 @@ def render_home():
 def render_devolucao_maquinas():
     mostrar_devolucao(supabase)
 
-def render_devolucao_dashboard():
-    mostrar_dashboard(supabase)
-
 def render_meet():
     mostrar_meet(supabase)
 
 def render_usuario():
     mostrar_novo_usuario(supabase)
+
+def render_lojistas():
+    mostrar_lojistas(supabase)
+
+def render_dashboard_meet():
+    mostrar_dashboard_meets(supabase)
 
 # --- LÓGICA DE NAVEGAÇÃO E REGRAS DE ACESSO ---
 if not st.session_state["usuario_logado"]:
@@ -79,6 +91,7 @@ else:
         empresa_id = int(dados_user.get("empresa_id", 0))
         setor_usuario = dados_user.get("setor", "")
         nome_logado = dados_user.get("nome_completo", "Usuário")
+        cargo_texto = mapa_cargos.get(nivel_acesso, "")
     except:
         # Caso o banco falhe, força a visualização do menu para testes
         nivel_acesso, empresa_id, setor_usuario, nome_logado = 1, 2, "SUPORTE", "Usuário Teste"
@@ -94,41 +107,50 @@ else:
     # 3. Montagem do Menu Base (Sempre visível)
     paginas = {
         "Menu Principal": [
-            st.Page(render_home, title="Home", icon="📊", default=True)
+            st.Page(render_home, title="Home", icon="📊", default=True),
+            st.Page(render_lojistas, title="Lojistas", icon="💼")
         ]
     }
 
     # 4. ACESSOS ADMINISTRATIVO
-    if nivel_acesso == 1:
+    if nivel_acesso <= 2:
         paginas["Administrativo"] = [
-            st.Page(render_devolucao_dashboard, title="Dashboard Devoluções", icon="📈"),
-            st.Page(render_devolucao_maquinas, title="Registrar Devolução", icon="📦"),
-            st.Page(render_meet, title="Meets", icon="🎥"),
-            st.Page(render_usuario, title="Cadastrar Usuário", icon="👤")
-        ]
+            st.Page(render_usuario, title="Cadastrar Usuário", icon="👤"),
+            st.Page(render_dashboard_meet, title="Dashboard Meets", icon="🎯")
+            ]
+        paginas["BrasilCard"] = [
+                                st.Page(render_meet, title="Meets", icon="🎥"),
+                            ]
+        paginas["Bolt"] = [
+                            st.Page(render_devolucao_maquinas, title="Devoluções", icon="📦")
+                        ]
     # ACESSOS BRASILCARD
     elif empresa_id == 1:
-        if nivel_acesso < 4:
+        if nivel_acesso <= 4:
+            paginas["Administrativo"] = [
+                        st.Page(render_usuario, title="Cadastrar Usuário", icon="👤"),
+                        st.Page(render_dashboard_meet, title="Dashboard Meets", icon="🎯")
+                        ]
             paginas["BrasilCard"] = [
                         st.Page(render_meet, title="Meets", icon="🎥"),
-                        st.Page(render_usuario, title="Cadastrar Usuário", icon="👤")
                     ]
         else:
             paginas["BrasilCard"] = [
-                        st.Page(render_meet, title="Meets", icon="🎥")
+                        st.Page(render_meet, title="Meets", icon="🎥"),
                     ]
     # ACESSOS BOLT
     elif empresa_id == 2:
-        if nivel_acesso < 4:
+        if nivel_acesso <= 4:
+            paginas["Administrativo"] = [
+                                    st.Page(render_usuario, title="Cadastrar Usuário", icon="👤"),
+                                    st.Page(render_dashboard_meet, title="Dashboard Meets", icon="🎯")
+                                    ]
             paginas["Bolt"] = [
-                        st.Page(render_devolucao_dashboard, title="Dashboard Devoluções", icon="📈"),
-                        st.Page(render_devolucao_maquinas, title="Registrar Devolução", icon="📦"),
-                        st.Page(render_usuario, title="Cadastrar Usuário", icon="👤")
+                        st.Page(render_devolucao_maquinas, title="Devoluções", icon="📦"),
                     ]
         else:
             paginas["Bolt"] = [
-                        st.Page(render_devolucao_dashboard, title="Dashboard Devoluções", icon="📈"),
-                        st.Page(render_devolucao_maquinas, title="Registrar Devolução", icon="📦")
+                        st.Page(render_devolucao_maquinas, title="Devoluções", icon="📦"),
                     ]
             
     # 5. Inicializa o roteador multipáginas
@@ -140,7 +162,8 @@ else:
         st.markdown(f"""
             <div class="sb-user">
                 <div class="sb-avatar">{nome_logado[:2].upper()}</div>
-                <div><small>Logado como</small><strong>{nome_logado}</strong></div>
+                <div><small>Logado como</small><strong>{str(nome_logado).split()[0]}</strong></div>
+                <span style="font-size: 12px; color: #38bdf8; margin-top: -2px;">{cargo_texto}</span>
             </div>
         """, unsafe_allow_html=True)
         st.write("")
