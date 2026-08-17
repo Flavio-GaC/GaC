@@ -13,14 +13,24 @@ def mostrar_meet(supabase):
 
     # Busca o setor do usuário logado para definir se usa CNPJ (COMERCIAL) ou PDV (Outros)
     try:
-        resp_user = supabase.table("usuarios").select("setor").eq("id", usuario_id).execute()
+        resp_user = supabase.table("usuarios").select("setor, empresa_id").eq("id", usuario_id).execute()
         dados_logado = resp_user.data[0]
         setor_logado = dados_logado.get("setor").upper()
+        empresa_id = dados_logado.get("empresa_id")
     except:
         setor_logado = False
+        empresa_id = None
 
     # Regra: Setor COMERCIAL usa CNPJ, qualquer outro setor usa PDV
-    usa_cnpj = (setor_logado == "COMERCIAL")
+    usa_cnpj = (setor_logado == "COMERCIAL" or setor_logado == "PRÉ-VENDA")
+
+    @st.cache_data(show_spinner=False, ttl=3600)
+    def buscar_especialistas_meet():
+        try:
+            resp = supabase.table("usuarios").select("id, nome_completo").eq("nivel_acesso", 5).eq("setor", "COMERCIAL").eq("empresa_id", 1).eq("ativo", "TRUE").order("nome_completo").execute()
+            return resp.data if resp.data else []
+        except Exception:
+            return []
 
     # ==========================================
     # ABA 1: CRIAR NOVO MEET
@@ -44,7 +54,32 @@ def mostrar_meet(supabase):
             
             with c3:
                 hora_meet = st.time_input("Hora do Meet")
-                status_meet = st.selectbox("Status", ["Aguardando Horário", "Em Andamento", "Concluído", "Cancelado"])
+                
+                # ==========================================
+                # NOVA REGRA: PRÉ-VENDA EMPRESA 1 AGENDA PARA OUTRO
+                # ==========================================
+                is_pre_venda_bcard = (empresa_id == 1 and setor_logado == "PRÉ-VENDA")
+                
+                if is_pre_venda_bcard:
+                    st.info("Agendamento para Especialista (Comercial)")
+                    especialistas = buscar_especialistas_meet()
+                    mapa_especialistas = {esp["nome_completo"]: esp["id"] for esp in especialistas}
+                    
+                    if mapa_especialistas:
+                        nome_especialista = st.selectbox("Especialista Responsável *", list(mapa_especialistas.keys()))
+                        id_dono_do_meet = mapa_especialistas[nome_especialista]
+                    else:
+                        st.error("Nenhum especialista encontrado.")
+                        id_dono_do_meet = None
+                        
+                    id_quem_agendou = usuario_id
+                    status_meet = "Aguardando Horário" # Força o status
+                    # Campo hidden para não quebrar o layout, ou mostra desabilitado
+                    st.selectbox("Status", ["Aguardando Horário"], disabled=True)
+                else:
+                    id_dono_do_meet = usuario_id
+                    id_quem_agendou = None
+                    status_meet = st.selectbox("Status", ["Aguardando Horário", "Em Andamento", "Concluído", "Cancelado"])
             
             acao = st.selectbox("Ação", ["AGENDADO", "REAGENDADO"])
             observacao = st.text_area("Observações")
@@ -55,7 +90,6 @@ def mostrar_meet(supabase):
                 identificador_limpo = re.sub(r"\D", "", input_identificador)
                 contato_lojista = re.sub(r"\D", "", input_contato_lojista)
 
-                # Validações baseadas no setor
                 if usa_cnpj:
                     if len(identificador_limpo) < 14:
                         st.error("Erro: CNPJ inválido. Digite os 14 números.")
@@ -69,12 +103,14 @@ def mostrar_meet(supabase):
                     st.error("Erro: Contato inválido.")
                 elif not nome_lojista:
                     st.error("Erro: Preencha o nome do lojista.")
+                elif is_pre_venda_bcard and not id_dono_do_meet:
+                     st.error("Erro: Especialista deve ser selecionado.")
                 else:
                     try:
                         with st.spinner("Gerando Meet..."):
-                            # Salva na coluna correta de acordo com o setor
                             dados = {
-                                "usuario_id": usuario_id,
+                                "usuario_id": id_dono_do_meet,
+                                "id_pre_venda": id_quem_agendou,
                                 "cnpj": identificador_limpo if usa_cnpj else None,
                                 "pdv": identificador_limpo if not usa_cnpj else None,
                                 "nome_lojista": nome_lojista,
@@ -123,11 +159,15 @@ def mostrar_meet(supabase):
                 with st.spinner("Buscando..."):
                     try:
                         if modo_busca == "Meus Meets":
-                            resp = supabase.table("meets").select("*").eq("usuario_id", usuario_id).order("created_at", desc=True).execute()
+                            # Se for Pré-Venda da empresa 1, busca pela FK de quem agendou. Senão, busca pelo dono do meet.
+                            is_pre_venda_bcard_busca = (empresa_id == 1 and setor_logado == "PRÉ-VENDA")
+                            if is_pre_venda_bcard_busca:
+                                resp = supabase.table("meets").select("*").eq("id_pre_venda", usuario_id).order("created_at", desc=True).execute()
+                            else:
+                                resp = supabase.table("meets").select("*").eq("usuario_id", usuario_id).order("created_at", desc=True).execute()
                         else:
                             param_limpo = re.sub(r"\D", "", input_busca_param)
                             if param_limpo:
-                                # Busca na coluna correta (cnpj ou pdv) dependendo do setor
                                 coluna_busca = "cnpj" if usa_cnpj else "pdv"
                                 resp = supabase.table("meets").select("*").eq(coluna_busca, param_limpo).order("created_at", desc=True).execute()
                             else:
@@ -162,7 +202,6 @@ def mostrar_meet(supabase):
                     base = historico[0]
                     status_atual = historico[-1]["status_meet"] 
                     
-                    # Identifica qual valor exibir no card (CNPJ ou PDV)
                     valor_identificador = base.get('cnpj') if base.get('cnpj') else base.get('pdv', 'N/A')
                     titulo_legenda_id = "CNPJ" if base.get('cnpj') else "PDV"
                     
@@ -195,77 +234,74 @@ def mostrar_meet(supabase):
                         
                         st.write("---")
                         
-                        with st.form(f"form_up_{mid}", clear_on_submit=True):
-                            titulo_secao("Adicionar Nova Interação")
-                            c1, c2, c3 = st.columns(3)
-                            with c1: 
-                                nova_acao = st.selectbox("Ação Realizada", ["AGENDADO", "REAGENDADO"], key=f"acao_{mid}")
-                            with c2: 
-                                novo_status = st.selectbox("Novo Status", ["Aguardando Horário", "Em Andamento", "Concluído", "Cancelado", "Cancelado No-Show"], key=f"status_{mid}")
-                            with c3:
-                                st.write("")
-                                nova_data = st.date_input("Nova Data", format="DD/MM/YYYY", key=f"dt_{mid}")
-                                nova_hora = st.time_input("Nova Hora", key=f"hr_{mid}")
-                            
-                            nova_obs = st.text_area("Nova Observação (Opcional)", key=f"obs_{mid}")
-                            submit_up = st.form_submit_button("Salvar Histórico", type="primary")
-                            
-                            if submit_up:
-                                with st.spinner("Processando..."):
-                                    ultimo_registro_id = historico[-1]["id"]
-                                    status_anterior_atual = historico[-1]["status_meet"]
+                        # ==========================================
+                        # TRAVA DE VISUALIZAÇÃO PARA PRÉ-VENDA
+                        # ==========================================
+                        if is_pre_venda_bcard:
+                            st.info("🔍 **Modo de Acompanhamento.**")
+                        else:
+                            with st.form(f"form_up_{mid}", clear_on_submit=True):
+                                titulo_secao("Adicionar Nova Interação")
+                                c1, c2, c3 = st.columns(3)
+                                with c1: 
+                                    nova_acao = st.selectbox("Ação Realizada", ["AGENDADO", "REAGENDADO"], key=f"acao_{mid}")
+                                with c2: 
+                                    novo_status = st.selectbox("Novo Status", ["Aguardando Horário", "Em Andamento", "Concluído", "Cancelado", "Cancelado No-Show"], key=f"status_{mid}")
+                                with c3:
+                                    st.write("")
+                                    nova_data = st.date_input("Nova Data", format="DD/MM/YYYY", key=f"dt_{mid}")
+                                    nova_hora = st.time_input("Nova Hora", key=f"hr_{mid}")
+                                
+                                nova_obs = st.text_area("Nova Observação (Opcional)", key=f"obs_{mid}")
+                                submit_up = st.form_submit_button("Salvar Histórico", type="primary")
+                                
+                                if submit_up:
+                                    with st.spinner("Processando..."):
+                                        ultimo_registro_id = historico[-1]["id"]
+                                        status_anterior_atual = historico[-1]["status_meet"]
 
-                                    # ==========================================
-                                    # REGRA 1: TRATAMENTO PARA REAGENDAMENTO
-                                    # ==========================================
-                                    if nova_acao == "REAGENDADO":
-                                        # Valida se o usuário alterou o status atual para Cancelado ou Cancelado No-Show
-                                        status_permitidos_reagendamento = ["Cancelado", "Cancelado No-Show"]
-                                        
-                                        if novo_status not in status_permitidos_reagendamento:
-                                            st.warning("⚠️ Para reagendar, você deve primeiro alterar o status deste meet para **'Cancelado'** ou **'Cancelado No-Show'**.")
-                                            st.stop()
-                                        
-                                        # Se passou na validação:
-                                        # 1. Atualiza o registro anterior com o status de cancelamento escolhido e a ação REAGENDADO
-                                        supabase.table("meets").update({
-                                            "status_meet": novo_status,
-                                            "acao": "REAGENDADO"
-                                        }).eq("id", ultimo_registro_id).execute()
+                                        if nova_acao == "REAGENDADO":
+                                            status_permitidos_reagendamento = ["Cancelado", "Cancelado No-Show"]
+                                            
+                                            if novo_status not in status_permitidos_reagendamento:
+                                                st.warning("⚠️ Para reagendar, você deve primeiro alterar o status deste meet para **'Cancelado'** ou **'Cancelado No-Show'**.")
+                                                st.stop()
+                                            
+                                            supabase.table("meets").update({
+                                                "status_meet": novo_status,
+                                                "acao": "REAGENDADO"
+                                            }).eq("id", ultimo_registro_id).execute()
 
-                                        # 2. Insere a nova linha na timeline como AGENDADO com o mesmo meet_id
-                                        dados_novo = {
-                                            "meet_id": mid,
-                                            "usuario_id": usuario_id,
-                                            "cnpj": base.get("cnpj"),
-                                            "pdv": base.get("pdv"),
-                                            "nome_lojista": base.get("nome_lojista"),
-                                            "contato_lojista": base.get("contato_lojista"),
-                                            "data_meet": nova_data.strftime("%Y-%m-%d"),
-                                            "hora_meet": nova_hora.strftime("%H:%M:%S"),
-                                            "acao": "AGENDADO",
-                                            "status_meet": "Aguardando Horário", # Novo agendamento começa aguardando
-                                            "observacao": nova_obs
-                                        }
-                                        
-                                        resp_up = supabase.table("meets").insert(dados_novo).execute()
-                                        if resp_up.data:
+                                            dados_novo = {
+                                                "meet_id": mid,
+                                                "usuario_id": base.get("usuario_id"),
+                                                "id_pre_venda": base.get("id_pre_venda"),
+                                                "cnpj": base.get("cnpj"),
+                                                "pdv": base.get("pdv"),
+                                                "nome_lojista": base.get("nome_lojista"),
+                                                "contato_lojista": base.get("contato_lojista"),
+                                                "data_meet": nova_data.strftime("%Y-%m-%d"),
+                                                "hora_meet": nova_hora.strftime("%H:%M:%S"),
+                                                "acao": "AGENDADO",
+                                                "status_meet": "Aguardando Horário", 
+                                                "observacao": nova_obs
+                                            }
+                                            
+                                            resp_up = supabase.table("meets").insert(dados_novo).execute()
+                                            if resp_up.data:
+                                                st.session_state.pop("meets_buscados", None)
+                                                st.success("Meet reagendado com sucesso! Nova linha criada na timeline.")
+                                                st.rerun()
+
+                                        else:
+                                            dados_update = {
+                                                "status_meet": novo_status,
+                                                "acao": nova_acao,
+                                                "observacao": nova_obs if nova_obs else historico[-1].get("observacao")
+                                            }
+                                            
+                                            supabase.table("meets").update(dados_update).eq("id", ultimo_registro_id).execute()
+                                            
                                             st.session_state.pop("meets_buscados", None)
-                                            st.success("Meet reagendado com sucesso! Nova linha criada na timeline.")
+                                            st.success("Status atualizado com sucesso no mesmo registro!")
                                             st.rerun()
-
-                                    # ==========================================
-                                    # REGRA 2: APENAS ATUALIZAÇÃO DE STATUS/DADOS
-                                    # ==========================================
-                                    else:
-                                        dados_update = {
-                                            "status_meet": novo_status,
-                                            "acao": nova_acao,
-                                            "observacao": nova_obs if nova_obs else historico[-1].get("observacao")
-                                        }
-                                        
-                                        supabase.table("meets").update(dados_update).eq("id", ultimo_registro_id).execute()
-                                        
-                                        st.session_state.pop("meets_buscados", None)
-                                        st.success("Status atualizado com sucesso no mesmo registro!")
-                                        st.rerun()
