@@ -31,7 +31,7 @@ def mostrar_novo_usuario(supabase):
     with aba_novo:
         todos_niveis = [
             "1 - Gestor",
-            "2 - Coordenador/Gestor",
+            "2 - Coordenador",
             "3 - Supervisor",
             "4 - Monitor",
             "5 - Operador"
@@ -69,7 +69,7 @@ def mostrar_novo_usuario(supabase):
                 empresa_nome = st.selectbox("Empresa *", opcoes_empresas)
 
             with col2:
-                setor = st.selectbox("Setor *", ["RECUPERAÇÃO", "SUPORTE", "DADOS", "PÓS-VENDA", "COMERCIAL"])
+                setor = st.selectbox("Setor *", ["RECUPERAÇÃO", "SUPORTE", "DADOS", "PÓS-VENDA", "COMERCIAL", "PRÉ-VENDA", "BACKOFFICE"])
                 senha = st.text_input("Senha *", type="password", help="Mínimo de 6 caracteres")
                 nivel = st.selectbox("Nível de Acesso *", niveis_permitidos)
 
@@ -201,7 +201,7 @@ def mostrar_novo_usuario(supabase):
                                 st.caption("🔒 Nível de acesso insuficiente para alterar a empresa.")
 
                         with c2:
-                            setores_disponiveis = ["RECUPERAÇÃO", "SUPORTE", "DADOS", "COMERCIAL", "PÓS-VENDA"]
+                            setores_disponiveis = ["RECUPERAÇÃO", "SUPORTE", "DADOS", "COMERCIAL", "PÓS-VENDA", "PRÉ-VENDA", "BACKOFFICE"]
                             if u_setor not in setores_disponiveis:
                                 setores_disponiveis.append(u_setor)
                             
