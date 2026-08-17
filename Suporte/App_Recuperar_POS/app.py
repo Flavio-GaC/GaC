@@ -1,8 +1,9 @@
 import streamlit as st
 from supabase import create_client
 
-# Importações do tema visual
+# Importações de temas
 from themes.theme import aplicar_tema, LOGO_URL, rodape
+from themes.theme_notifications import checar_notificacoes
 
 # Importar rotas
 from routers.login import mostrar_login
@@ -12,6 +13,8 @@ from routers.brasilcard.registro_meet import mostrar_meet
 from routers.brasilcard.dashboard_meets import mostrar_dashboard_meets
 from routers.cadastro_usuario import mostrar_novo_usuario
 from routers.lojistas import mostrar_lojistas
+from routers.brasilcard.upload_leads import mostrar_upload_leads
+from routers.brasilcard.esteira_leads import mostrar_esteira_leads
 
 
 # Configuração Base
@@ -74,6 +77,16 @@ def render_lojistas():
 def render_dashboard_meet():
     mostrar_dashboard_meets(supabase)
 
+def render_upload_leads():
+    mostrar_upload_leads(supabase)
+
+def render_esteira_leads():
+    mostrar_esteira_leads(supabase)
+
+def render_notifications():
+    checar_notificacoes(supabase)
+
+
 # --- LÓGICA DE NAVEGAÇÃO E REGRAS DE ACESSO ---
 if not st.session_state["usuario_logado"]:
     # Oculta a barra lateral caso o usuário não esteja logado
@@ -82,21 +95,30 @@ if not st.session_state["usuario_logado"]:
     pg.run()
     
 else:
-    # 1. Busca os dados do usuário para permissões
+    # 1. Busca todos os dados do usuário em uma única consulta
     uid = st.session_state.get("uid")
     try:
         resp = supabase.table("usuarios").select("nivel_acesso, empresa_id, setor, nome_completo").eq("id", uid).execute()
         dados_user = resp.data[0]
+        
         nivel_acesso = int(dados_user["nivel_acesso"])
         empresa_id = int(dados_user.get("empresa_id", 0))
-        setor_usuario = dados_user.get("setor", "")
+        setor_usuario = str(dados_user.get("setor", "")).strip().upper()
         nome_logado = dados_user.get("nome_completo", "Usuário")
         cargo_texto = mapa_cargos.get(nivel_acesso, "")
+        
+        # Já guarda o setor na sessão para as outras telas (como a da esteira) aproveitarem
+        st.session_state["setor_usuario"] = setor_usuario
+        
     except:
         # Caso o banco falhe, força a visualização do menu para testes
         nivel_acesso, empresa_id, setor_usuario, nome_logado = 1, 2, "SUPORTE", "Usuário Teste"
+        cargo_texto = ""
+    
+    # 2. Chama o verificador de notificações silencioso
+    checar_notificacoes(supabase, uid, setor_usuario)
 
-    # 2. Botão de Dark/Light Mode na tela principal
+    # 3. Botão de Dark/Light Mode na tela principal
     c_vazia, c_botao = st.columns([8.8, 1.2])
     with c_botao:
         icone = "☀️ Light" if st.session_state["tema"] == "dark" else "🌙 Dark"
@@ -120,6 +142,8 @@ else:
             ]
         paginas["BrasilCard"] = [
                                 st.Page(render_meet, title="Meets", icon="🎥"),
+                                st.Page(render_upload_leads, title="Importar Leads", icon="🧲"),
+                                st.Page(render_esteira_leads, title="Esteira comercial", icon="🚀")
                             ]
         paginas["Bolt"] = [
                             st.Page(render_devolucao_maquinas, title="Devoluções", icon="📦")
@@ -129,14 +153,17 @@ else:
         if nivel_acesso <= 4:
             paginas["Administrativo"] = [
                         st.Page(render_usuario, title="Cadastrar Usuário", icon="👤"),
-                        st.Page(render_dashboard_meet, title="Dashboard Meets", icon="🎯")
+                        st.Page(render_dashboard_meet, title="Dashboard Meets", icon="🎯"),
+                        st.Page(render_upload_leads, title="Importar Leads", icon="🧲")
                         ]
             paginas["BrasilCard"] = [
                         st.Page(render_meet, title="Meets", icon="🎥"),
+                        st.Page(render_esteira_leads, title="Esteira comercial", icon="🚀")
                     ]
         else:
             paginas["BrasilCard"] = [
                         st.Page(render_meet, title="Meets", icon="🎥"),
+                        st.Page(render_esteira_leads, title="Esteira comercial", icon="🚀")
                     ]
     # ACESSOS BOLT
     elif empresa_id == 2:
@@ -162,8 +189,11 @@ else:
         st.markdown(f"""
             <div class="sb-user">
                 <div class="sb-avatar">{nome_logado[:2].upper()}</div>
-                <div><small>Logado como</small><strong>{str(nome_logado).split()[0]}</strong></div>
-                <span style="font-size: 12px; color: #38bdf8; margin-top: -2px;">{cargo_texto}</span>
+                <div>
+                    <small>Logado como </small><strong>{str(nome_logado).split()[0]}</strong><br>
+                    <span style="font-size: 12px; color: #38bdf8; margin-top: 2px; display: inline-block;">{cargo_texto}</span>
+                    <span style="font-size: 9px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle;">{str(setor_usuario).split()[0]}</span>
+                </div>
             </div>
         """, unsafe_allow_html=True)
         st.write("")
