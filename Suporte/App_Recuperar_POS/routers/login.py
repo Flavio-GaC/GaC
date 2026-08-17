@@ -49,6 +49,7 @@ def mostrar_login(supabase):
                     # 3. SE ESTIVER ATIVO, SEGUE O FLUXO NORMAL DE LOGIN
                     st.session_state["usuario_logado"] = True
                     st.session_state["uid"] = uid
+                    st.session_state["nivel_acesso"] = int(resp_usuario.data[0]["nivel_acesso"])
                     st.rerun()
                 except Exception as e:
                     st.error("Credenciais inválidas. Tente novamente.")
