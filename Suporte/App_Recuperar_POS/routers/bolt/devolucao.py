@@ -68,7 +68,7 @@ def mostrar_devolucao(supabase):
 
             with col1:
                 pdv = st.text_input("Código do PDV *", help="Obrigatório. Deve existir na tabela PDV.", max_chars=10)
-                modelo = st.selectbox("Modelo da Máquina", ["", "S920", "P2 A11", "D195", "Q92X"])
+                modelo = st.selectbox("Modelo da Máquina", ["", "S920", "P2 A11", "D195", "Q92X", "C680"])
                 qtd = st.number_input("Quantidade", min_value=1, step=1)
                 valor_reais = st.number_input("Valor (R$)", value=1050.0, format="%.2f")
 
