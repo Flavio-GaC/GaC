@@ -104,6 +104,17 @@ def mostrar_esteira_leads(supabase):
             return {u["id"]: u["nome_completo"] for u in resp.data} if resp.data else {}
         except Exception:
             return {}
+            
+    def formatar_cnpj(cnpj):
+        if not cnpj:
+            return '-'
+
+        cnpj = ''.join(filter(str.isdigit, str(cnpj)))
+
+        if len(cnpj) != 14:
+            return cnpj
+
+        return f'{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:]}'
 
     @st.cache_data(show_spinner=False, ttl=3600)
     def buscar_especialistas():
@@ -178,12 +189,18 @@ def mostrar_esteira_leads(supabase):
             with c_info1:
                 st.caption("**Segmento:**")
                 st.write(lead.get('segmento', '—'))
+                st.caption("**CNPJ:**")
+                st.write(formatar_cnpj(lead.get('cnpj', '-')))
             with c_info2:
                 st.caption("**Telefone:**")
                 st.write(lead.get('telefone', '—'))
+                st.caption("**Lojista:**")
+                st.write(lead.get('contato_loja', '-'))
             with c_info3:
                 st.caption("**Faturamento:**")
                 st.write(lead.get('faturamento_mensal', '—'))
+                st.caption("**Nome Fantasia:**")
+                st.write(lead.get('nome_empresa', '-'))
             
             st.write("---")
 
