@@ -1,7 +1,16 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from themes.theme import cabecalho_pagina, titulo_secao
+
+def render_card(titulo, valor, cor_fundo):
+    st.markdown(f"""
+    <div style="background-color: {cor_fundo}; padding: 20px; border-radius: 10px; color: white; 
+                text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
+        <p style="margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9;">{titulo}</p>
+        <h2 style="margin: 5px 0 0 0; font-size: 38px; font-weight: bold;">{valor}</h2>
+    </div>
+    """, unsafe_allow_html=True)
 
 def renderizar_linha_do_tempo(historicos, mapa_usuarios):
     if not historicos:
@@ -47,6 +56,41 @@ def renderizar_linha_do_tempo(historicos, mapa_usuarios):
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
 
+def verificar_duplo_clique(supabase, lead_id, update_lead):
+    try:
+        resp = supabase.table("leads").select("*").eq("id", lead_id).execute()
+        if not resp.data: return False
+        
+        banco_lead = resp.data[0]
+        
+        dados_iguais = True
+        for k, v in update_lead.items():
+            if k in ["updated_at", "data_pdv_gerado"]: continue
+            val_banco = banco_lead.get(k)
+            if val_banco == v: continue
+            try:
+                if float(val_banco) == float(v): continue
+            except: pass
+            
+            vb = "" if val_banco is None else str(val_banco).strip()
+            va = "" if v is None else str(v).strip()
+            
+            if vb != va:
+                dados_iguais = False
+                break
+                
+        tempo_inferior_5s = False
+        dt_str = banco_lead.get("updated_at")
+        if dt_str:
+            dt_obj = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+            agora = datetime.now(timezone.utc)
+            if (agora - dt_obj).total_seconds() < 5:
+                tempo_inferior_5s = True
+                
+        return (dados_iguais and tempo_inferior_5s)
+    except Exception:
+        return False
+
 
 def mostrar_esteira_leads(supabase):
     cabecalho_pagina("Esteira de Vendas", "Gerencie seus leads, avance as negociações e acompanhe o funil em tempo real.")
@@ -66,20 +110,51 @@ def mostrar_esteira_leads(supabase):
         except Exception:
             setor_usuario = ""
 
+    status_fase1 = ["PROSPECTAR", "CONTATO REALIZADO", "QUALIFICADO", "MEET AGENDADO", "RAMO QUE NÃO FECHA", "CONTATO INVÁLIDO"]
+    status_fase2 = ["MEET REALIZADO", "PROPOSTA APRESENTADA", "EM NEGOCIAÇÃO", "CLIENTE DESISTIU", "NEGADO", "CADASTRO"]
+    status_fase3 = ["EM ANALISE", "AGUARDANDO PAGAMENTO PRIVATE/LINK", "AGUARDANDO PAGAMENTO DE ADESÃO", "NEGADO COMPROVANTE", "NEGADO BIO", "NEGADO RISCO", "NEGADO PRAZO", "NEGADO PELO SUPERVISOR", "NEGADO SEM RETORNO", "NEGADO CONTRATO", "CLIENTE DESISTIU", "CONTRATO APROVADO, AGUARDANDO ASSINATURA", "ASSINADO", "PDV GERADO"]
+    opcoes_meio = ["", "Whatsapp", "Ligação - VOX", "Ligação - Whatsapp", "Fortics", "E-mail", "Meet"]
+    setores_ind = ["PROSPECÇÃO PRÓPRIA", "PRÉ-VENDAS BCARD", "OUTROS SETORES", "LEADS ÍMPAR", "INDICAÇÃO INTERNA"]
+
     @st.cache_data(show_spinner=False, ttl=300)
-    def buscar_meus_leads_esteira(usuario_id, nivel, setor):
+    def buscar_kpis_esteira(usuario_id, nivel, setor):
         try:
-            query = supabase.table("leads").select("*")
+            query = supabase.table("leads").select("fase_atual, status_atual")
             if nivel >= 5:
                 if setor == "PRÉ-VENDA": query = query.eq("id_pre_venda", usuario_id)
                 elif setor == "COMERCIAL": query = query.eq("id_especialista", usuario_id)
                 elif setor == "BACKOFFICE": query = query.or_(f"fase_atual.eq.3,id_bko.eq.{usuario_id}")
                 else: query = query.eq("responsavel_atual", usuario_id)
-            else:
-                query = query.limit(200)
-
-            resp = query.order("updated_at", desc=True).execute()
+            resp = query.execute()
             return resp.data if resp.data else []
+        except:
+            return []
+
+    @st.cache_data(show_spinner=False, ttl=300)
+    def buscar_leads_paginados_e_filtrados(usuario_id, nivel, setor, limit, offset, filtros):
+        try:
+            query = supabase.table("leads").select("*", count="exact")
+            
+            if nivel >= 5:
+                if setor == "PRÉ-VENDA": query = query.eq("id_pre_venda", usuario_id)
+                elif setor == "COMERCIAL": query = query.eq("id_especialista", usuario_id)
+                elif setor == "BACKOFFICE": query = query.or_(f"fase_atual.eq.3,id_bko.eq.{usuario_id}")
+                else: query = query.eq("responsavel_atual", usuario_id)
+
+            if filtros.get("cnpj"):
+                cnpj_limpo = ''.join(filter(str.isdigit, str(filtros["cnpj"])))
+                query = query.ilike("cnpj", f"%{cnpj_limpo}%")
+            if filtros.get("nome"):
+                query = query.ilike("nome_empresa", f"%{filtros['nome']}%")
+            if filtros.get("status"):
+                query = query.eq("status_atual", filtros["status"])
+            if filtros.get("data_ini"):
+                query = query.gte("updated_at", f"{filtros['data_ini']} 00:00:00")
+            if filtros.get("data_fim"):
+                query = query.lte("updated_at", f"{filtros['data_fim']} 23:59:59")
+
+            resp = query.order("updated_at", desc=True).range(offset, offset + limit - 1).execute()
+            return {"data": resp.data, "count": resp.count}
         except Exception as e:
             return f"erro: {e}"
 
@@ -104,17 +179,6 @@ def mostrar_esteira_leads(supabase):
             return {u["id"]: u["nome_completo"] for u in resp.data} if resp.data else {}
         except Exception:
             return {}
-            
-    def formatar_cnpj(cnpj):
-        if not cnpj:
-            return '-'
-
-        cnpj = ''.join(filter(str.isdigit, str(cnpj)))
-
-        if len(cnpj) != 14:
-            return cnpj
-
-        return f'{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:]}'
 
     @st.cache_data(show_spinner=False, ttl=3600)
     def buscar_especialistas():
@@ -124,32 +188,125 @@ def mostrar_esteira_leads(supabase):
         except Exception:
             return []
 
-    leads = buscar_meus_leads_esteira(uid, nivel_acesso, setor_usuario)
-    especialistas = buscar_especialistas()
-    mapa_todos_usuarios = buscar_todos_usuarios()
+    def formatar_cnpj(cnpj):
+        if not cnpj: return '-'
+        cnpj = ''.join(filter(str.isdigit, str(cnpj)))
+        if len(cnpj) != 14: return cnpj
+        return f'{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:]}'
 
-    if isinstance(leads, str) and leads.startswith("erro:"):
-        st.error(f"Erro ao carregar seus leads: {leads}")
+    if "esteira_filtros" not in st.session_state:
+        st.session_state["esteira_filtros"] = {}
+    if "esteira_pagina" not in st.session_state:
+        st.session_state["esteira_pagina"] = 1
+
+    def reset_pagina():
+        st.session_state["esteira_pagina"] = 1
+
+    # ==========================================
+    # KPIS NO TOPO
+    # ==========================================
+    dados_kpi = buscar_kpis_esteira(uid, nivel_acesso, setor_usuario)
+    df_kpi = pd.DataFrame(dados_kpi)
+    
+    total_fila = len(df_kpi)
+    if total_fila > 0:
+        qtd_fase2 = len(df_kpi[df_kpi["fase_atual"] == 2])
+        qtd_fase3 = len(df_kpi[df_kpi["fase_atual"] == 3])
+        qtd_pdv = len(df_kpi[df_kpi["status_atual"] == "PDV GERADO"])
+    else:
+        qtd_fase2 = qtd_fase3 = qtd_pdv = 0
+
+    st.write("")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: render_card("Total de Leads", str(total_fila), "#1E3A8A")
+    with c2: render_card("Em Negociação (F2)", str(qtd_fase2), "#9333EA")
+    with c3: render_card("Em BKO (F3)", str(qtd_fase3), "#f97316")
+    with c4: render_card("PDV Gerado", str(qtd_pdv), "#059669")
+    
+    # ==========================================
+    # FILTROS FIXOS
+    # ==========================================
+    titulo_secao("🔍 Filtros de Busca")
+    with st.container(border=True):
+        with st.form("form_filtros_esteira"):
+            f1, f2 = st.columns(2)
+            with f1:
+                filtro_cnpj = st.text_input("CNPJ", value=st.session_state["esteira_filtros"].get("cnpj", ""))
+                filtro_nome = st.text_input("Nome Fantasia / Empresa", value=st.session_state["esteira_filtros"].get("nome", ""))
+            with f2:
+                todos_status = [""] + status_fase1 + status_fase2 + status_fase3
+                todos_status_unicos = list(dict.fromkeys(todos_status))
+                
+                idx_status = todos_status_unicos.index(st.session_state["esteira_filtros"].get("status", "")) if st.session_state["esteira_filtros"].get("status", "") in todos_status_unicos else 0
+                filtro_status = st.selectbox("Status Atual", todos_status_unicos, index=idx_status)
+                
+                cf1, cf2 = st.columns(2)
+                with cf1:
+                    filtro_dt_ini = st.date_input("Últ. Atualização (De)", value=st.session_state["esteira_filtros"].get("data_ini"), format="DD/MM/YYYY")
+                with cf2:
+                    filtro_dt_fim = st.date_input("Últ. Atualização (Até)", value=st.session_state["esteira_filtros"].get("data_fim"), format="DD/MM/YYYY")
+
+            c_btn1, c_btn2, c_btn3 = st.columns([1, 1, 3])
+            with c_btn1:
+                if st.form_submit_button("Aplicar Filtros", type="primary", use_container_width=True):
+                    st.session_state["esteira_filtros"] = {
+                        "cnpj": filtro_cnpj, "nome": filtro_nome, "status": filtro_status,
+                        "data_ini": filtro_dt_ini, "data_fim": filtro_dt_fim
+                    }
+                    st.session_state["esteira_pagina"] = 1
+                    buscar_leads_paginados_e_filtrados.clear()
+                    st.rerun()
+            with c_btn2:
+                if st.session_state["esteira_filtros"]:
+                    if st.form_submit_button("Limpar Filtros", type="secondary", use_container_width=True):
+                        st.session_state["esteira_filtros"] = {}
+                        st.session_state["esteira_pagina"] = 1
+                        buscar_leads_paginados_e_filtrados.clear()
+                        st.rerun()
+
+    # ==========================================
+    # BUSCA DE DADOS (PAGINAÇÃO SERVER-SIDE)
+    # ==========================================
+    st.write("")
+    col_info, col_pag = st.columns([8, 2])
+    with col_pag:
+        itens_por_pagina = st.selectbox(
+            "Itens por página", 
+            [10, 20, 50], 
+            index=1, 
+            key="itens_pagina", 
+            on_change=reset_pagina
+        )
+
+    offset = (st.session_state["esteira_pagina"] - 1) * itens_por_pagina
+    resultado_bd = buscar_leads_paginados_e_filtrados(
+        uid, nivel_acesso, setor_usuario, 
+        limit=itens_por_pagina, offset=offset, filtros=st.session_state["esteira_filtros"]
+    )
+
+    if isinstance(resultado_bd, str) and resultado_bd.startswith("erro:"):
+        st.error(f"Erro ao carregar seus leads: {resultado_bd}")
         return
 
+    leads = resultado_bd.get("data", [])
+    total_leads_filtrados = resultado_bd.get("count", 0)
+
+    with col_info:
+        st.write(f"Mostrando **{len(leads)}** leads (Total encontrado na busca: **{total_leads_filtrados}**).")
+
     if not leads:
-        st.success("Sua fila está vazia no momento!")
+        st.warning("Nenhum lead encontrado para os filtros ou página atual.")
         return
 
     ids_dos_leads = [l["id"] for l in leads]
     mapa_historicos = buscar_historico_lote(ids_dos_leads)
-
-    st.write(f"Você tem acesso a **{len(leads)}** leads na esteira.")
-    st.write("---")
-
+    especialistas = buscar_especialistas()
+    mapa_todos_usuarios = buscar_todos_usuarios()
     mapa_especialistas = {esp["nome_completo"]: esp["id"] for esp in especialistas}
-    
-    status_fase1 = ["PROSPECTAR", "CONTATO REALIZADO", "QUALIFICADO", "MEET AGENDADO", "RAMO QUE NÃO FECHA", "CONTATO INVÁLIDO"]
-    status_fase2 = ["MEET REALIZADO", "PROPOSTA APRESENTADA", "EM NEGOCIAÇÃO", "CLIENTE DESISTIU", "NEGADO", "CADASTRO"]
-    status_fase3 = ["EM ANALISE", "AGUARDANDO DOCUMENTAÇÃO", "AGUARDANDO PAGAMENTO PRIVATE/LINK", "AGUARDANDO PAGAMENTO DE ADESÃO", "NEGADO COMPROVANTE", "NEGADO BIO", "NEGADO RISCO", "NEGADO PRAZO", "NEGADO PELO SUPERVISOR", "NEGADO SEM RETORNO", "NEGADO CONTRATO", "CLIENTE DESISTIU", "CONTRATO APROVADO, AGUARDANDO ASSINATURA", "ASSINADO", "PDV GERADO"]
-    opcoes_meio = ["", "Whatsapp", "Ligação - VOX", "Ligação - Whatsapp", "Fortics", "E-mail", "Meet"]
-    setores_ind = ["PROSPECÇÃO PRÓPRIA", "PRÉ-VENDAS BCARD", "OUTROS SETORES", "LEADS ÍMPAR", "INDICAÇÃO INTERNA"]
 
+    # ==========================================
+    # RENDERIZAÇÃO DA ESTEIRA (CARDS)
+    # ==========================================
     for lead in leads:
         lead_id = lead["id"]
         status_atual = lead.get("status_atual", "PROSPECTAR")
@@ -162,7 +319,7 @@ def mostrar_esteira_leads(supabase):
 
         if fase_atual == 1 and (is_gestao or setor_usuario == "PRÉ-VENDA"):
             pode_editar = True
-            cor_status = "🔵"
+            cor_status = "🔴" if status_atual in ["CONTATO INVÁLIDO", "RAMO QUE NÃO FECHA"] else "🔵"
         elif fase_atual == 2 and (is_gestao or setor_usuario == "COMERCIAL"):
             pode_editar = True
             cor_status = "🟣"
@@ -174,7 +331,7 @@ def mostrar_esteira_leads(supabase):
             cor_status = "🏆"
             if nivel_acesso > 2:
                 pode_editar = False
-
+        
         with st.expander(f"{cor_status} {empresa} | Fase: {fase_atual} | Status: {status_atual}"):
             
             cor_destaque = "#3b82f6" if fase_atual == 1 else ("#a855f7" if fase_atual == 2 else ("#eab308" if cor_status == "🏆" else "#f97316"))
@@ -230,22 +387,26 @@ def mostrar_esteira_leads(supabase):
                         if novo_status == "MEET AGENDADO" and not especialista_selecionado:
                             st.warning("Selecione um Especialista para transferir o lead.")
                         else:
-                            with st.spinner("Atualizando esteira..."):
-                                update_lead = {"status_atual": novo_status, "updated_at": "now()"}
-                                if novo_status == "MEET AGENDADO":
-                                    id_esp = mapa_especialistas[especialista_selecionado]
-                                    update_lead.update({"fase_atual": 2, "id_especialista": id_esp, "responsavel_atual": id_esp, "meio_fechamento": "MEET"})
+                            update_lead = {"status_atual": novo_status, "updated_at": "now()"}
+                            if novo_status == "MEET AGENDADO":
+                                id_esp = mapa_especialistas[especialista_selecionado]
+                                update_lead.update({"fase_atual": 2, "id_especialista": id_esp, "responsavel_atual": id_esp, "meio_fechamento": "MEET"})
 
-                                supabase.table("leads").update(update_lead).eq("id", lead_id).execute()
-                                supabase.table("historico_leads").insert({
-                                    "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 1, 
-                                    "status_anterior": status_atual, "status_novo": novo_status,
-                                    "tentativa": tentativa, "houve_contato": houve_contato, "observacao": obs
-                                }).execute()
+                            if verificar_duplo_clique(supabase, lead_id, update_lead):
+                                st.warning("⚠️ Bloqueio ativado: Operação já realizada há poucos segundos com os mesmos dados.")
+                            else:
+                                with st.spinner("Atualizando esteira..."):
+                                    supabase.table("leads").update(update_lead).eq("id", lead_id).execute()
+                                    supabase.table("historico_leads").insert({
+                                        "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 1, 
+                                        "status_anterior": status_atual, "status_novo": novo_status,
+                                        "tentativa": tentativa, "houve_contato": houve_contato, "observacao": obs
+                                    }).execute()
 
-                                buscar_meus_leads_esteira.clear()
-                                buscar_historico_lote.clear()
-                                st.rerun()
+                                    buscar_leads_paginados_e_filtrados.clear()
+                                    buscar_historico_lote.clear()
+                                    buscar_kpis_esteira.clear()
+                                    st.rerun()
 
                 # --- FASE 2: COMERCIAL ---
                 elif fase_atual == 2:
@@ -262,22 +423,26 @@ def mostrar_esteira_leads(supabase):
                     obs = st.text_area("Observações da Negociação (Visível para o BKO)", key=f"obs2_{lead_id}")
                     
                     if st.button("Atualizar Negociação", key=f"btn2_{lead_id}", type="primary"):
-                        with st.spinner("Gravando no banco..."):
-                            update_lead = {"status_atual": novo_status, "updated_at": "now()"}
-                            if novo_status == "CADASTRO":
-                                update_lead["fase_atual"] = 3
-                                update_lead["responsavel_atual"] = None 
+                        update_lead = {"status_atual": novo_status, "updated_at": "now()"}
+                        if novo_status == "CADASTRO":
+                            update_lead["fase_atual"] = 3
+                            update_lead["responsavel_atual"] = None 
 
-                            supabase.table("leads").update(update_lead).eq("id", lead_id).execute()
-                            supabase.table("historico_leads").insert({
-                                "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 2, 
-                                "status_anterior": status_atual, "status_novo": novo_status,
-                                "observacao": obs if obs else "Negociação atualizada."
-                            }).execute()
+                        if verificar_duplo_clique(supabase, lead_id, update_lead):
+                            st.warning("⚠️ Bloqueio ativado: Operação já realizada há poucos segundos com os mesmos dados.")
+                        else:
+                            with st.spinner("Gravando no banco..."):
+                                supabase.table("leads").update(update_lead).eq("id", lead_id).execute()
+                                supabase.table("historico_leads").insert({
+                                    "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 2, 
+                                    "status_anterior": status_atual, "status_novo": novo_status,
+                                    "observacao": obs if obs else "Negociação atualizada."
+                                }).execute()
 
-                            buscar_meus_leads_esteira.clear()
-                            buscar_historico_lote.clear()
-                            st.rerun()
+                                buscar_leads_paginados_e_filtrados.clear()
+                                buscar_historico_lote.clear()
+                                buscar_kpis_esteira.clear()
+                                st.rerun()
                 
                 # --- FASE 3: BKO ---
                 elif fase_atual == 3:
@@ -308,45 +473,40 @@ def mostrar_esteira_leads(supabase):
                     obs = st.text_area("Observações Finais e Auditoria", value=lead.get("observacao_final", ""), key=f"obs3_{lead_id}")
                     
                     if st.button("Salvar Cadastro (BKO)", key=f"btn3_{lead_id}", type="primary"):
-                        with st.spinner("Atualizando base do BKO..."):
-                            update_lead = {
-                                "status_atual": novo_status,
-                                "rede_ou_individual": rede_individual,
-                                "is_private": is_private,
-                                "private_pago": private_pago,
-                                "valor_adesao": valor_adesao,
-                                "adesao_paga": adesao_paga,
-                                "emitir_ou_receber": emitir_receber,
-                                "email_loja": email_loja,
-                                "contato_loja": contato_loja,
-                                "responsavel_loja": responsavel_loja,
-                                "supervisor_responsavel": superv_resp,
-                                "setor_indicacao": setor_indicacao,
-                                "meio_fechamento": meio_fechamento,
-                                "observacao_final": obs,
-                                "updated_at": "now()"
-                            }
-                            
-                            if not lead.get("id_bko"):
-                                update_lead["id_bko"] = uid
-                                update_lead["responsavel_atual"] = uid
+                        update_lead = {
+                            "status_atual": novo_status, "rede_ou_individual": rede_individual, "is_private": is_private,
+                            "private_pago": private_pago, "valor_adesao": valor_adesao, "adesao_paga": adesao_paga,
+                            "emitir_ou_receber": emitir_receber, "email_loja": email_loja, "contato_loja": contato_loja,
+                            "responsavel_loja": responsavel_loja, "supervisor_responsavel": superv_resp,
+                            "setor_indicacao": setor_indicacao, "meio_fechamento": meio_fechamento,
+                            "observacao_final": obs, "updated_at": "now()"
+                        }
+                        
+                        if not lead.get("id_bko"):
+                            update_lead["id_bko"] = uid
+                            update_lead["responsavel_atual"] = uid
 
-                            if novo_status == "PDV GERADO":
-                                update_lead["data_pdv_gerado"] = "now()"
+                        if novo_status == "PDV GERADO":
+                            update_lead["data_pdv_gerado"] = "now()"
 
-                            try:
-                                supabase.table("leads").update(update_lead).eq("id", lead_id).execute()
-                                supabase.table("historico_leads").insert({
-                                    "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 3, 
-                                    "status_anterior": status_atual, "status_novo": novo_status,
-                                    "observacao": obs if obs else "Atualização de BKO"
-                                }).execute()
+                        if verificar_duplo_clique(supabase, lead_id, update_lead):
+                            st.warning("⚠️ Bloqueio ativado: Operação já realizada há poucos segundos com os mesmos dados.")
+                        else:
+                            with st.spinner("Atualizando base do BKO..."):
+                                try:
+                                    supabase.table("leads").update(update_lead).eq("id", lead_id).execute()
+                                    supabase.table("historico_leads").insert({
+                                        "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 3, 
+                                        "status_anterior": status_atual, "status_novo": novo_status,
+                                        "observacao": obs if obs else "Atualização de BKO"
+                                    }).execute()
 
-                                buscar_meus_leads_esteira.clear()
-                                buscar_historico_lote.clear()
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao salvar: {e}")
+                                    buscar_leads_paginados_e_filtrados.clear()
+                                    buscar_historico_lote.clear()
+                                    buscar_kpis_esteira.clear()
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao salvar: {e}")
 
             else:
                 if status_atual == "PDV GERADO":
@@ -358,3 +518,21 @@ def mostrar_esteira_leads(supabase):
             st.markdown("### 🕒 Histórico de Interações")
             historico_deste_lead = mapa_historicos.get(lead_id, [])
             renderizar_linha_do_tempo(historico_deste_lead, mapa_todos_usuarios)
+
+    st.write("---")
+    total_paginas = (total_leads_filtrados // itens_por_pagina) + (1 if total_leads_filtrados % itens_por_pagina > 0 else 0)
+    
+    col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
+    
+    with col_p1:
+        if st.button("⬅️ Anterior", disabled=(st.session_state["esteira_pagina"] <= 1), use_container_width=True):
+            st.session_state["esteira_pagina"] -= 1
+            st.rerun()
+            
+    with col_p2:
+        st.markdown(f"<div style='text-align: center; padding-top: 5px; color: #a1a1aa;'>Página <b>{st.session_state['esteira_pagina']}</b> de <b>{max(1, total_paginas)}</b></div>", unsafe_allow_html=True)
+        
+    with col_p3:
+        if st.button("Próxima ➡️", disabled=(st.session_state["esteira_pagina"] >= total_paginas), use_container_width=True):
+            st.session_state["esteira_pagina"] += 1
+            st.rerun()
