@@ -34,7 +34,7 @@ def mostrar_dashboard_meets(supabase):
     @st.cache_data(show_spinner=False, ttl=1800)
     def buscar_dados_meets(data_inicio_str, data_fim_str):
         try:
-            resp = supabase.table("meets").select("*").gte("created_at", f"{data_inicio_str} 00:00:00").lte("created_at", f"{data_fim_str} 23:59:59").execute()
+            resp = supabase.table("meets").select("*").gte("created_at", f"{data_inicio_str} 00:00:00").lte("created_at", f"{data_fim_str} 23:59:59").limit(10000).execute()
             return resp.data if resp.data else []
         except Exception as e:
             return f"erro: {e}"
@@ -42,7 +42,7 @@ def mostrar_dashboard_meets(supabase):
     @st.cache_data(show_spinner=False, ttl=1800)
     def buscar_dados_leads(data_inicio_str, data_fim_str):
         try:
-            resp = supabase.table("leads").select("*").gte("created_at", f"{data_inicio_str} 00:00:00").lte("created_at", f"{data_fim_str} 23:59:59").execute()
+            resp = supabase.table("leads").select("*").gte("created_at", f"{data_inicio_str} 00:00:00").lte("created_at", f"{data_fim_str} 23:59:59").limit(10000).execute()
             return resp.data if resp.data else []
         except Exception as e:
             return f"erro: {e}"
@@ -103,26 +103,80 @@ def mostrar_dashboard_meets(supabase):
             taxa_conversao = (pdvs_gerados / total_leads * 100) if total_leads > 0 else 0
 
             l1, l2, l3, l4 = st.columns(4)
-            with l1: render_card("Total de Leads Importados", str(total_leads), "#1E3A8A") # Azul
-            with l2: render_card("Avançaram pro Comercial", str(leads_fase2_mais), "#9333EA") # Roxo
-            with l3: render_card("PDVs Gerados (Sucesso)", str(pdvs_gerados), "#059669") # Verde
-            with l4: render_card("Conversão Global", f"{taxa_conversao:.1f}%", "#D97706") # Laranja
+            with l1: render_card("Total de Leads Importados", str(total_leads), "#1E3A8A")
+            with l2: render_card("Avançaram pro Comercial", str(leads_fase2_mais), "#9333EA")
+            with l3: render_card("PDVs Gerados (Sucesso)", str(pdvs_gerados), "#059669")
+            with l4: render_card("Conversão Global", f"{taxa_conversao:.1f}%", "#D97706")
 
             st.write("---")
 
-            # --- GRÁFICOS ---
+            # --- GRÁFICOS E TABELA FUNIL ---
             cg1, cg2 = st.columns([3, 2])
 
             with cg1:
                 titulo_secao("Funil de Vendas Global")
-                dados_funil = dict(
-                    Etapas=["1. Importados (Base Total)", "2. Em Negociação Comercial", "3. Concluídos (PDV Gerado)"],
-                    Volume=[total_leads, leads_fase2_mais, pdvs_gerados]
-                )
-                df_funil = pd.DataFrame(dados_funil)
-                fig_funnel = px.funnel(df_funil, x='Volume', y='Etapas', color_discrete_sequence=['#3b82f6'])
-                fig_funnel.update_layout(margin=dict(l=20, r=20, t=30, b=20))
-                st.plotly_chart(fig_funnel, use_container_width=True)
+                
+                # CÁLCULOS DO FUNIL EM MEMÓRIA (Custo zero pro banco)
+                qtd_leads = total_leads
+                qtd_trabalhados = len(df_leads[df_leads['status_atual'] != 'PROSPECTAR'])
+                qtd_agendados = len(df_leads[df_leads['fase_atual'] == 2])
+                
+                # Para saber os realizados: todo mundo da fase 2 pra cima JÁ fez meet, além de quem está com status 'MEET REALIZADO' agora
+                qtd_realizados = len(df_leads[(df_leads['fase_atual'] >= 2) | (df_leads['status_atual'] == 'MEET REALIZADO')])
+                
+                qtd_cadastrados = len(df_leads[df_leads['fase_atual'] == 3])
+                qtd_pdv = pdvs_gerados
+
+                # Função auxiliar para percentagem
+                def calc_perc(valor):
+                    if qtd_leads == 0: return "0,00%"
+                    return f"{(valor / qtd_leads) * 100:.2f}%".replace('.', ',')
+
+                # Tabela em HTML idêntica à solicitada
+                html_tabela_funil = f"""
+                <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; text-align: center; border: 1px solid black; margin-top: 15px;">
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid black; background-color: transparent; padding: 10px;"></th>
+                            <th style="border: 1px solid black; background-color: transparent; padding: 10px; font-weight: bold; color: #d4d4d8;">FUNIL OPERACIONAL</th>
+                            <th style="border: 1px solid black; background-color: transparent; padding: 10px; font-weight: bold; color: #d4d4d8;">Perc. %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">LEADs</td>
+                            <td style="border: 1px solid black; padding: 10px; background-color: #5b9bd5; color: white; font-weight: bold; font-size: 16px;">{qtd_leads}</td>
+                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">-</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">LEADs TRABALHADOS</td>
+                            <td style="border: 1px solid black; padding: 10px; background-color: #4472c4; color: white; font-weight: bold; font-size: 16px;">{qtd_trabalhados}</td>
+                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_trabalhados)}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">MEET AGENDADO</td>
+                            <td style="border: 1px solid black; padding: 10px; background-color: #38a581; color: white; font-weight: bold; font-size: 16px;">{qtd_agendados}</td>
+                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_agendados)}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">REALIZADO</td>
+                            <td style="border: 1px solid black; padding: 10px; background-color: #38a581; color: white; font-weight: bold; font-size: 16px;">{qtd_realizados}</td>
+                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_realizados)}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">CADASTRADO</td>
+                            <td style="border: 1px solid black; padding: 10px; background-color: #2ca05a; color: white; font-weight: bold; font-size: 16px;">{qtd_cadastrados}</td>
+                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_cadastrados)}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">PDV GERADO</td>
+                            <td style="border: 1px solid black; padding: 10px; background-color: #2ca05a; color: white; font-weight: bold; font-size: 16px;">{qtd_pdv}</td>
+                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_pdv)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                """
+                st.markdown(html_tabela_funil, unsafe_allow_html=True)
 
             with cg2:
                 titulo_secao("Leads por Especialista (Fase 2+)")
