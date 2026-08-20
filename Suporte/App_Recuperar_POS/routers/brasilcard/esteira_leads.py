@@ -110,9 +110,9 @@ def mostrar_esteira_leads(supabase):
         except Exception:
             setor_usuario = ""
 
-    status_fase1 = ["PROSPECTAR", "CONTATO REALIZADO", "QUALIFICADO", "MEET AGENDADO", "RAMO QUE NÃO FECHA", "CONTATO INVÁLIDO"]
-    status_fase2 = ["MEET REALIZADO", "PROPOSTA APRESENTADA", "EM NEGOCIAÇÃO", "CLIENTE DESISTIU", "NEGADO", "CADASTRO"]
-    status_fase3 = ["EM ANALISE", "AGUARDANDO DOCUMENTAÇÃO", "AGUARDANDO PAGAMENTO PRIVATE/LINK", "AGUARDANDO PAGAMENTO DE ADESÃO", "NEGADO COMPROVANTE", "NEGADO BIO", "NEGADO RISCO", "NEGADO PRAZO", "NEGADO PELO SUPERVISOR", "NEGADO SEM RETORNO", "NEGADO CONTRATO", "CLIENTE DESISTIU", "CONTRATO APROVADO, AGUARDANDO ASSINATURA", "ASSINADO", "PDV GERADO"]
+    status_fase1 = ["PROSPECTAR", "CONTATO REALIZADO", "QUALIFICADO", "MEET AGENDADO", "MEET REALIZADO", "RAMO QUE NÃO FECHA", "CONTATO INVÁLIDO"]
+    status_fase2 = ["PROPOSTA APRESENTADA", "EM NEGOCIAÇÃO", "CLIENTE DESISTIU", "AGUARDANDO DOCUMENTAÇÃO", "AGUARDANDO RESPOSTA", "ENVIADO PARA CADASTRO"]
+    status_fase3 = ["EM ANALISE", "CADASTRO REALIZADO", "AGUARDANDO PAGAMENTO PRIVATE/LINK", "AGUARDANDO PAGAMENTO DE ADESÃO", "NEGADO COMPROVANTE", "NEGADO BIO", "NEGADO RISCO", "NEGADO PRAZO", "NEGADO PELO SUPERVISOR", "NEGADO SEM RETORNO", "NEGADO CONTRATO", "CLIENTE DESISTIU", "CONTRATO APROVADO, AGUARDANDO ASSINATURA", "ASSINADO", "PDV GERADO"]
     opcoes_meio = ["", "Whatsapp", "Ligação - VOX", "Ligação - Whatsapp", "Fortics", "E-mail", "Meet"]
     setores_ind = ["PROSPECÇÃO PRÓPRIA", "PRÉ-VENDAS BCARD", "OUTROS SETORES", "LEADS ÍMPAR", "INDICAÇÃO INTERNA"]
 
@@ -376,7 +376,7 @@ def mostrar_esteira_leads(supabase):
                         tentativa = st.number_input("Tentativa (Nº)", min_value=1, step=1, value=1, key=f"tent1_{lead_id}")
                     
                     especialista_selecionado = None
-                    if novo_status == "MEET AGENDADO":
+                    if novo_status == "MEET REALIZADO":
                         st.info("🔄 O lead será transferido para a Fase 2 (Especialista).")
                         if mapa_especialistas:
                             especialista_selecionado = st.selectbox("Selecione o Especialista *", list(mapa_especialistas.keys()), key=f"esp_{lead_id}")
@@ -384,11 +384,11 @@ def mostrar_esteira_leads(supabase):
                     obs = st.text_area("Observações (Resumo do Contato)", key=f"obs1_{lead_id}")
                     
                     if st.button("Salvar Pré-Venda", key=f"btn1_{lead_id}", type="primary"):
-                        if novo_status == "MEET AGENDADO" and not especialista_selecionado:
+                        if novo_status == "MEET REALIZADO" and not especialista_selecionado:
                             st.warning("Selecione um Especialista para transferir o lead.")
                         else:
                             update_lead = {"status_atual": novo_status, "updated_at": "now()"}
-                            if novo_status == "MEET AGENDADO":
+                            if novo_status == "MEET REALIZADO":
                                 id_esp = mapa_especialistas[especialista_selecionado]
                                 update_lead.update({"fase_atual": 2, "id_especialista": id_esp, "responsavel_atual": id_esp, "meio_fechamento": "MEET"})
 
@@ -417,14 +417,14 @@ def mostrar_esteira_leads(supabase):
                     with col2:
                         meio_contato = st.selectbox("Meio de Contato", opcoes_meio, index=opcoes_meio.index("Meet") if "Meet" in opcoes_meio else 0, key=f"meio2_{lead_id}")
                     
-                    if novo_status == "CADASTRO":
+                    if novo_status == "ENVIADO PARA CADASTRO":
                         st.info("🚀 **Fechamento concluído!** Ao salvar, este lead será enviado para a fila do Backoffice (BKO).")
 
                     obs = st.text_area("Observações da Negociação (Visível para o BKO)", key=f"obs2_{lead_id}")
                     
                     if st.button("Atualizar Negociação", key=f"btn2_{lead_id}", type="primary"):
                         update_lead = {"status_atual": novo_status, "updated_at": "now()"}
-                        if novo_status == "CADASTRO":
+                        if novo_status == "ENVIADO PARA CADASTRO":
                             update_lead["fase_atual"] = 3
                             update_lead["responsavel_atual"] = None 
 
