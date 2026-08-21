@@ -110,8 +110,8 @@ def mostrar_esteira_leads(supabase):
         except Exception:
             setor_usuario = ""
 
-    status_fase1 = ["PROSPECTAR", "CONTATO REALIZADO", "QUALIFICADO", "MEET AGENDADO", "MEET REALIZADO", "RAMO QUE NÃO FECHA", "CONTATO INVÁLIDO"]
-    status_fase2 = ["PROPOSTA APRESENTADA", "EM NEGOCIAÇÃO", "CLIENTE DESISTIU", "AGUARDANDO DOCUMENTAÇÃO", "AGUARDANDO RESPOSTA", "ENVIADO PARA CADASTRO"]
+    status_fase1 = ["PROSPECTAR", "CONTATO REALIZADO", "QUALIFICADO", "MEET AGENDADO", "MEET REALIZADO", "RAMO QUE NÃO FECHA", "CONTATO INVÁLIDO", "JÁ POSSUI PDV"]
+    status_fase2 = ["PROPOSTA APRESENTADA", "EM NEGOCIAÇÃO", "CLIENTE DESISTIU", "AGUARDANDO DOCUMENTAÇÃO", "AGUARDANDO RESPOSTA", "ENVIADO PARA CADASTRO", "JÁ POSSUI PDV"]
     status_fase3 = ["EM ANALISE", "CADASTRO REALIZADO", "AGUARDANDO PAGAMENTO PRIVATE/LINK", "AGUARDANDO PAGAMENTO DE ADESÃO", "NEGADO COMPROVANTE", "NEGADO BIO", "NEGADO RISCO", "NEGADO PRAZO", "NEGADO PELO SUPERVISOR", "NEGADO SEM RETORNO", "NEGADO CONTRATO", "CLIENTE DESISTIU", "CONTRATO APROVADO, AGUARDANDO ASSINATURA", "ASSINADO", "PDV GERADO"]
     opcoes_meio = ["", "Whatsapp", "Ligação - VOX", "Ligação - Whatsapp", "Fortics", "E-mail", "Meet"]
     setores_ind = ["PROSPECÇÃO PRÓPRIA", "PRÉ-VENDAS BCARD", "OUTROS SETORES", "LEADS ÍMPAR", "INDICAÇÃO INTERNA"]
@@ -319,13 +319,13 @@ def mostrar_esteira_leads(supabase):
 
         if fase_atual == 1 and (is_gestao or setor_usuario == "PRÉ-VENDA"):
             pode_editar = True
-            cor_status = "🔴" if status_atual in ["CONTATO INVÁLIDO", "RAMO QUE NÃO FECHA"] else "🔵"
+            cor_status = "🔴" if status_atual in ["CONTATO INVÁLIDO", "RAMO QUE NÃO FECHA", "JÁ POSSUI PDV"] else "🔵"
         elif fase_atual == 2 and (is_gestao or setor_usuario == "COMERCIAL"):
             pode_editar = True
-            cor_status = "🟣"
+            cor_status = "🔴" if status_atual in ["CONTATO INVÁLIDO", "RAMO QUE NÃO FECHA", "JÁ POSSUI PDV"] else "🟣"
         elif fase_atual == 3 and (is_gestao or setor_usuario == "BACKOFFICE"):
             pode_editar = True
-            cor_status = "🟠"
+            cor_status = "🔴" if status_atual in ["CONTATO INVÁLIDO", "RAMO QUE NÃO FECHA", "JÁ POSSUI PDV"] else "🟠"
 
         if status_atual == "PDV GERADO":
             cor_status = "🏆"
