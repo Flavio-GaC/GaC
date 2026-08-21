@@ -387,7 +387,7 @@ def mostrar_esteira_leads(supabase):
                         if novo_status == "MEET REALIZADO" and not especialista_selecionado:
                             st.warning("Selecione um Especialista para transferir o lead.")
                         else:
-                            update_lead = {"status_atual": novo_status, "updated_at": "now()"}
+                            update_lead = {"status_atual": novo_status, "meio_fechamento": meio_contato, "updated_at": "now()"}
                             if novo_status == "MEET REALIZADO":
                                 id_esp = mapa_especialistas[especialista_selecionado]
                                 update_lead.update({"fase_atual": 2, "id_especialista": id_esp, "responsavel_atual": id_esp, "meio_fechamento": "MEET"})
@@ -423,7 +423,7 @@ def mostrar_esteira_leads(supabase):
                     obs = st.text_area("Observações da Negociação (Visível para o BKO)", key=f"obs2_{lead_id}")
                     
                     if st.button("Atualizar Negociação", key=f"btn2_{lead_id}", type="primary"):
-                        update_lead = {"status_atual": novo_status, "updated_at": "now()"}
+                        update_lead = {"status_atual": novo_status, "meio_fechamento": meio_contato, "updated_at": "now()"}
                         if novo_status == "ENVIADO PARA CADASTRO":
                             update_lead["fase_atual"] = 3
                             update_lead["responsavel_atual"] = None 
