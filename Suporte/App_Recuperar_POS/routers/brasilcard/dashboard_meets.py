@@ -94,172 +94,183 @@ def mostrar_dashboard_meets(supabase):
             
             df_leads['nome_pre_venda'] = df_leads['id_pre_venda'].map(lambda uid: mapa_usuarios.get(uid, "Sem dono"))
             df_leads['nome_especialista'] = df_leads['id_especialista'].map(lambda uid: mapa_usuarios.get(uid, "Não atribuído"))
+            df_leads['nome_responsavel'] = df_leads['responsavel_atual'].map(lambda uid: mapa_usuarios.get(uid, "Não atribuído"))
             df_leads['data_criacao'] = pd.to_datetime(df_leads['created_at']).dt.strftime('%d/%m/%Y')
 
-            # --- KPIS PRINCIPAIS DA ESTEIRA ---
-            total_leads = len(df_leads)
-            leads_fase2_mais = len(df_leads[df_leads['fase_atual'] >= 2])
-            pdvs_gerados = len(df_leads[df_leads['status_atual'] == 'PDV GERADO'])
-            taxa_conversao = (pdvs_gerados / total_leads * 100) if total_leads > 0 else 0
+            st.write("")
+            op_disp_leads = sorted(df_leads['nome_responsavel'].astype(str).unique().tolist())
+            ops_selecionados_leads = st.multiselect("Filtrar Dashboard de Leads por Responsável:", options=op_disp_leads, default=[])
 
-            l1, l2, l3, l4 = st.columns(4)
-            with l1: render_card("Total de Leads Importados", str(total_leads), "#1E3A8A")
-            with l2: render_card("Avançaram pro Comercial", str(leads_fase2_mais), "#9333EA")
-            with l3: render_card("PDVs Gerados (Sucesso)", str(pdvs_gerados), "#059669")
-            with l4: render_card("Conversão Global", f"{taxa_conversao:.1f}%", "#D97706")
+            df_filtrado_leads = df_leads[df_leads['nome_responsavel'].isin(ops_selecionados_leads)] if ops_selecionados_leads else df_leads
 
-            st.write("---")
+            if df_filtrado_leads.empty:
+                st.info("Nenhum lead para o(s) responsável(is) selecionado(s).")
+            else:
+                # --- KPIS PRINCIPAIS DA ESTEIRA ---
+                total_leads = len(df_filtrado_leads)
+                leads_fase2_mais = len(df_filtrado_leads[df_filtrado_leads['fase_atual'] >= 2])
+                pdvs_gerados = len(df_filtrado_leads[df_filtrado_leads['status_atual'] == 'PDV GERADO'])
+                taxa_conversao = (pdvs_gerados / total_leads * 100) if total_leads > 0 else 0
 
-            # --- GRÁFICOS E TABELA FUNIL ---
-            cg1, cg2 = st.columns([3, 2])
+                l1, l2, l3, l4 = st.columns(4)
+                with l1: render_card("Total de Leads", str(total_leads), "#1E3A8A")
+                with l2: render_card("Avançaram pro Comercial", str(leads_fase2_mais), "#9333EA")
+                with l3: render_card("PDVs Gerados (Sucesso)", str(pdvs_gerados), "#059669")
+                with l4: render_card("Conversão", f"{taxa_conversao:.1f}%", "#D97706")
 
-            with cg1:
-                titulo_secao("Funil de Vendas Global")
+                st.write("---")
+
+                # --- GRÁFICOS E TABELA FUNIL ---
+                cg1, cg2 = st.columns([3, 2])
+
+                with cg1:
+                    titulo_secao("Funil de Vendas")
+                    
+                    # CÁLCULOS DO FUNIL EM MEMÓRIA (Custo zero pro banco)
+                    qtd_leads = total_leads
+                    qtd_trabalhados = len(df_filtrado_leads[df_filtrado_leads['status_atual'] != 'PROSPECTAR'])
+                    qtd_agendados = len(df_filtrado_leads[df_filtrado_leads['fase_atual'] == 2])
+                    
+                    # Para saber os realizados: todo mundo da fase 2 pra cima JÁ fez meet, além de quem está com status 'MEET REALIZADO' agora
+                    qtd_realizados = len(df_filtrado_leads[(df_filtrado_leads['fase_atual'] >= 2) | (df_filtrado_leads['status_atual'] == 'MEET REALIZADO')])
+                    
+                    qtd_cadastrados = len(df_filtrado_leads[df_filtrado_leads['fase_atual'] == 3])
+                    qtd_pdv = pdvs_gerados
+
+                    # Função auxiliar para percentagem
+                    def calc_perc(valor):
+                        if qtd_leads == 0: return "0,00%"
+                        return f"{(valor / qtd_leads) * 100:.2f}%".replace('.', ',')
+
+                    # Tabela em HTML idêntica à solicitada
+                    html_tabela_funil = f"""
+                    <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; text-align: center; border: 1px solid black; margin-top: 15px;">
+                        <thead>
+                            <tr>
+                                <th style="border: 1px solid black; background-color: transparent; padding: 10px;"></th>
+                                <th style="border: 1px solid black; background-color: transparent; padding: 10px; font-weight: bold; color: #d4d4d8;">FUNIL OPERACIONAL</th>
+                                <th style="border: 1px solid black; background-color: transparent; padding: 10px; font-weight: bold; color: #d4d4d8;">Perc. %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">LEADs</td>
+                                <td style="border: 1px solid black; padding: 10px; background-color: #5b9bd5; color: white; font-weight: bold; font-size: 16px;">{qtd_leads}</td>
+                                <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">-</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">LEADs TRABALHADOS</td>
+                                <td style="border: 1px solid black; padding: 10px; background-color: #4472c4; color: white; font-weight: bold; font-size: 16px;">{qtd_trabalhados}</td>
+                                <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_trabalhados)}</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">MEET AGENDADO</td>
+                                <td style="border: 1px solid black; padding: 10px; background-color: #38a581; color: white; font-weight: bold; font-size: 16px;">{qtd_agendados}</td>
+                                <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_agendados)}</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">REALIZADO</td>
+                                <td style="border: 1px solid black; padding: 10px; background-color: #38a581; color: white; font-weight: bold; font-size: 16px;">{qtd_realizados}</td>
+                                <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_realizados)}</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">CADASTRADO</td>
+                                <td style="border: 1px solid black; padding: 10px; background-color: #2ca05a; color: white; font-weight: bold; font-size: 16px;">{qtd_cadastrados}</td>
+                                <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_cadastrados)}</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">PDV GERADO</td>
+                                <td style="border: 1px solid black; padding: 10px; background-color: #2ca05a; color: white; font-weight: bold; font-size: 16px;">{qtd_pdv}</td>
+                                <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_pdv)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    """
+                    st.markdown(html_tabela_funil, unsafe_allow_html=True)
+
+                with cg2:
+                    titulo_secao("Leads por Especialista (Fase 2+)")
+                    df_esp = df_filtrado_leads[df_filtrado_leads['fase_atual'] >= 2]
+                    if not df_esp.empty:
+                        df_esp_agrupado = df_esp.groupby('nome_especialista').size().reset_index(name='Qtd').sort_values('Qtd')
+                        fig_esp = px.bar(df_esp_agrupado, x='Qtd', y='nome_especialista', orientation='h', text='Qtd', color_discrete_sequence=['#a855f7'])
+                        fig_esp.update_layout(xaxis_title="", yaxis_title="", margin=dict(l=0, r=0, t=30, b=0))
+                        st.plotly_chart(fig_esp, use_container_width=True)
+                    else:
+                        st.info("Nenhum lead chegou ao Comercial neste período.")
+
+                # ==============================================================================
+                # DETALHAMENTO DE STATUS POR ETAPA (O GRÁFICO VERTICAL)
+                # ==============================================================================
+                st.write("---")
+                titulo_secao("🔍 Diagnóstico: Onde os leads estão parados?")
                 
-                # CÁLCULOS DO FUNIL EM MEMÓRIA (Custo zero pro banco)
-                qtd_leads = total_leads
-                qtd_trabalhados = len(df_leads[df_leads['status_atual'] != 'PROSPECTAR'])
-                qtd_agendados = len(df_leads[df_leads['fase_atual'] == 2])
-                
-                # Para saber os realizados: todo mundo da fase 2 pra cima JÁ fez meet, além de quem está com status 'MEET REALIZADO' agora
-                qtd_realizados = len(df_leads[(df_leads['fase_atual'] >= 2) | (df_leads['status_atual'] == 'MEET REALIZADO')])
-                
-                qtd_cadastrados = len(df_leads[df_leads['fase_atual'] == 3])
-                qtd_pdv = pdvs_gerados
+                # Seletor interativo em formato de botões
+                opcoes_fase = ["🔵 Fase 1 (Pré-Venda)", "🟣 Fase 2 (Comercial)", "🟠 Fase 3 (Backoffice)"]
+                fase_selecionada = st.radio("Selecione a fase para detalhar os status:", opcoes_fase, horizontal=True)
 
-                # Função auxiliar para percentagem
-                def calc_perc(valor):
-                    if qtd_leads == 0: return "0,00%"
-                    return f"{(valor / qtd_leads) * 100:.2f}%".replace('.', ',')
-
-                # Tabela em HTML idêntica à solicitada
-                html_tabela_funil = f"""
-                <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; text-align: center; border: 1px solid black; margin-top: 15px;">
-                    <thead>
-                        <tr>
-                            <th style="border: 1px solid black; background-color: transparent; padding: 10px;"></th>
-                            <th style="border: 1px solid black; background-color: transparent; padding: 10px; font-weight: bold; color: #d4d4d8;">FUNIL OPERACIONAL</th>
-                            <th style="border: 1px solid black; background-color: transparent; padding: 10px; font-weight: bold; color: #d4d4d8;">Perc. %</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">LEADs</td>
-                            <td style="border: 1px solid black; padding: 10px; background-color: #5b9bd5; color: white; font-weight: bold; font-size: 16px;">{qtd_leads}</td>
-                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">-</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">LEADs TRABALHADOS</td>
-                            <td style="border: 1px solid black; padding: 10px; background-color: #4472c4; color: white; font-weight: bold; font-size: 16px;">{qtd_trabalhados}</td>
-                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_trabalhados)}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">MEET AGENDADO</td>
-                            <td style="border: 1px solid black; padding: 10px; background-color: #38a581; color: white; font-weight: bold; font-size: 16px;">{qtd_agendados}</td>
-                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_agendados)}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">REALIZADO</td>
-                            <td style="border: 1px solid black; padding: 10px; background-color: #38a581; color: white; font-weight: bold; font-size: 16px;">{qtd_realizados}</td>
-                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_realizados)}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">CADASTRADO</td>
-                            <td style="border: 1px solid black; padding: 10px; background-color: #2ca05a; color: white; font-weight: bold; font-size: 16px;">{qtd_cadastrados}</td>
-                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_cadastrados)}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid black; padding: 10px; font-weight: bold; text-align: right; color: #d4d4d8;">PDV GERADO</td>
-                            <td style="border: 1px solid black; padding: 10px; background-color: #2ca05a; color: white; font-weight: bold; font-size: 16px;">{qtd_pdv}</td>
-                            <td style="border: 1px solid black; padding: 10px; color: #d4d4d8;">{calc_perc(qtd_pdv)}</td>
-                        </tr>
-                    </tbody>
-                </table>
-                """
-                st.markdown(html_tabela_funil, unsafe_allow_html=True)
-
-            with cg2:
-                titulo_secao("Leads por Especialista (Fase 2+)")
-                df_esp = df_leads[df_leads['fase_atual'] >= 2]
-                if not df_esp.empty:
-                    df_esp_agrupado = df_esp.groupby('nome_especialista').size().reset_index(name='Qtd').sort_values('Qtd')
-                    fig_esp = px.bar(df_esp_agrupado, x='Qtd', y='nome_especialista', orientation='h', text='Qtd', color_discrete_sequence=['#a855f7'])
-                    fig_esp.update_layout(xaxis_title="", yaxis_title="", margin=dict(l=0, r=0, t=30, b=0))
-                    st.plotly_chart(fig_esp, use_container_width=True)
+                # Lógica de filtro e cores baseada no clique
+                if "Fase 1" in fase_selecionada:
+                    df_detalhe = df_filtrado_leads[df_filtrado_leads['fase_atual'] == 1]
+                    cor_barras = "#3b82f6"
+                elif "Fase 2" in fase_selecionada:
+                    df_detalhe = df_filtrado_leads[df_filtrado_leads['fase_atual'] == 2]
+                    cor_barras = "#a855f7"
                 else:
-                    st.info("Nenhum lead chegou ao Comercial neste período.")
+                    df_detalhe = df_filtrado_leads[df_filtrado_leads['fase_atual'] == 3]
+                    cor_barras = "#f97316"
 
-            # ==============================================================================
-            # NOVO: DETALHAMENTO DE STATUS POR ETAPA (O GRÁFICO VERTICAL)
-            # ==============================================================================
-            st.write("---")
-            titulo_secao("🔍 Diagnóstico: Onde os leads estão parados?")
-            
-            # Seletor interativo em formato de botões
-            opcoes_fase = ["🔵 Fase 1 (Pré-Venda)", "🟣 Fase 2 (Comercial)", "🟠 Fase 3 (Backoffice)"]
-            fase_selecionada = st.radio("Selecione a fase para detalhar os status:", opcoes_fase, horizontal=True)
+                if df_detalhe.empty:
+                    st.info("Não há leads parados nesta fase no período selecionado.")
+                else:
+                    # Agrupa os status, conta e ordena do maior pro menor
+                    df_status_detalhe = df_detalhe.groupby('status_atual').size().reset_index(name='Quantidade').sort_values('Quantidade', ascending=False)
+                    
+                    # Gera o gráfico vertical
+                    fig_bar_detalhe = px.bar(
+                        df_status_detalhe, 
+                        x='status_atual', 
+                        y='Quantidade', 
+                        text='Quantidade',
+                        color_discrete_sequence=[cor_barras]
+                    )
+                    
+                    # Ajuste de layout para o gráfico vertical
+                    fig_bar_detalhe.update_traces(textposition='outside')
+                    fig_bar_detalhe.update_layout(
+                        xaxis_title="Status Atual", 
+                        yaxis_title="Volume de Leads", 
+                        margin=dict(l=0, r=0, t=30, b=0),
+                        xaxis_tickangle=-45 # Inclina o texto para caber certinho se tiver nomes compridos
+                    )
+                    st.plotly_chart(fig_bar_detalhe, use_container_width=True)
 
-            # Lógica de filtro e cores baseada no clique
-            if "Fase 1" in fase_selecionada:
-                df_detalhe = df_leads[df_leads['fase_atual'] == 1]
-                cor_barras = "#3b82f6"
-            elif "Fase 2" in fase_selecionada:
-                df_detalhe = df_leads[df_leads['fase_atual'] == 2]
-                cor_barras = "#a855f7"
-            else:
-                df_detalhe = df_leads[df_leads['fase_atual'] == 3]
-                cor_barras = "#f97316"
+                # --- EXPORTAÇÃO DOS LEADS BRUTOS ---
+                st.write("---")
+                with st.expander("📊 Ver Base de Leads (Bruto) e Exportar"):
+                    colunas_leads = {
+                        "cnpj": "CNPJ", "nome_empresa": "Empresa", "origem": "Origem",
+                        "fase_atual": "Fase", "status_atual": "Status", 
+                        "nome_responsavel": "Responsável Atual",
+                        "nome_pre_venda": "Pré-Venda", "nome_especialista": "Especialista Comercial",
+                        "data_criacao": "Data Entrada"
+                    }
+                    cols_existentes_leads = [c for c in colunas_leads.keys() if c in df_filtrado_leads.columns]
+                    df_leads_exibicao = df_filtrado_leads[cols_existentes_leads].rename(columns=colunas_leads)
 
-            if df_detalhe.empty:
-                st.info("Não há leads parados nesta fase no período selecionado.")
-            else:
-                # Agrupa os status, conta e ordena do maior pro menor
-                df_status_detalhe = df_detalhe.groupby('status_atual').size().reset_index(name='Quantidade').sort_values('Quantidade', ascending=False)
-                
-                # Gera o gráfico vertical
-                fig_bar_detalhe = px.bar(
-                    df_status_detalhe, 
-                    x='status_atual', 
-                    y='Quantidade', 
-                    text='Quantidade',
-                    color_discrete_sequence=[cor_barras]
-                )
-                
-                # Ajuste de layout para o gráfico vertical
-                fig_bar_detalhe.update_traces(textposition='outside')
-                fig_bar_detalhe.update_layout(
-                    xaxis_title="Status Atual", 
-                    yaxis_title="Volume de Leads", 
-                    margin=dict(l=0, r=0, t=30, b=0),
-                    xaxis_tickangle=-45 # Inclina o texto para caber certinho se tiver nomes compridos
-                )
-                st.plotly_chart(fig_bar_detalhe, use_container_width=True)
+                    st.dataframe(df_leads_exibicao, use_container_width=True, hide_index=True)
 
-            # --- EXPORTAÇÃO DOS LEADS BRUTOS ---
-            st.write("---")
-            with st.expander("📊 Ver Base de Leads (Bruto) e Exportar"):
-                colunas_leads = {
-                    "cnpj": "CNPJ", "nome_empresa": "Empresa", "origem": "Origem",
-                    "fase_atual": "Fase", "status_atual": "Status", 
-                    "nome_pre_venda": "Pré-Venda", "nome_especialista": "Especialista Comercial",
-                    "data_criacao": "Data Entrada"
-                }
-                cols_existentes_leads = [c for c in colunas_leads.keys() if c in df_leads.columns]
-                df_leads_exibicao = df_leads[cols_existentes_leads].rename(columns=colunas_leads)
-
-                st.dataframe(df_leads_exibicao, use_container_width=True, hide_index=True)
-
-                buffer_leads = io.BytesIO()
-                with pd.ExcelWriter(buffer_leads, engine='xlsxwriter') as writer:
-                    df_leads_exibicao.to_excel(writer, index=False, sheet_name='Leads')
-                
-                st.download_button(
-                    label="📥 Baixar Base de Leads (Excel)",
-                    data=buffer_leads.getvalue(),
-                    file_name=f"relatorio_leads_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    type="primary"
-                )
+                    buffer_leads = io.BytesIO()
+                    with pd.ExcelWriter(buffer_leads, engine='xlsxwriter') as writer:
+                        df_leads_exibicao.to_excel(writer, index=False, sheet_name='Leads')
+                    
+                    st.download_button(
+                        label="📥 Baixar Base de Leads (Excel)",
+                        data=buffer_leads.getvalue(),
+                        file_name=f"relatorio_leads_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        type="primary"
+                    )
 
     # ==============================================================================
     # ABA 2: GESTÃO DE MEETS
