@@ -47,6 +47,14 @@ def mostrar_dashboard_meets(supabase):
         except Exception as e:
             return f"erro: {e}"
 
+    @st.cache_data(show_spinner=False, ttl=1800)
+    def buscar_dados_historico(data_inicio_str, data_fim_str):
+        try:
+            resp = supabase.table("historico_leads").select("*").gte("created_at", f"{data_inicio_str} 00:00:00").lte("created_at", f"{data_fim_str} 23:59:59").limit(10000).execute()
+            return resp.data if resp.data else []
+        except Exception as e:
+            return f"erro: {e}"
+
     # ==========================================
     # FILTROS GLOBAIS (Aplicam para as duas abas)
     # ==========================================
@@ -73,9 +81,11 @@ def mostrar_dashboard_meets(supabase):
             
             st.session_state["dash_dados_meets"] = buscar_dados_meets(str_ini, str_fim)
             st.session_state["dash_dados_leads"] = buscar_dados_leads(str_ini, str_fim)
+            st.session_state["dash_dados_historico"] = buscar_dados_historico(str_ini, str_fim)
 
     dados_meets = st.session_state.get("dash_dados_meets", [])
     dados_leads = st.session_state.get("dash_dados_leads", [])
+    dados_historico = st.session_state.get("dash_dados_historico", [])
 
     mapa_usuarios = obter_mapa_usuarios()
 
@@ -200,16 +210,14 @@ def mostrar_dashboard_meets(supabase):
                         st.info("Nenhum lead chegou ao Comercial neste período.")
 
                 # ==============================================================================
-                # DETALHAMENTO DE STATUS POR ETAPA (O GRÁFICO VERTICAL)
+                # DETALHAMENTO DE STATUS POR ETAPA
                 # ==============================================================================
                 st.write("---")
                 titulo_secao("🔍 Diagnóstico: Onde os leads estão parados?")
                 
-                # Seletor interativo em formato de botões
                 opcoes_fase = ["🔵 Fase 1 (Pré-Venda)", "🟣 Fase 2 (Comercial)", "🟠 Fase 3 (Backoffice)"]
                 fase_selecionada = st.radio("Selecione a fase para detalhar os status:", opcoes_fase, horizontal=True)
 
-                # Lógica de filtro e cores baseada no clique
                 if "Fase 1" in fase_selecionada:
                     df_detalhe = df_filtrado_leads[df_filtrado_leads['fase_atual'] == 1]
                     cor_barras = "#3b82f6"
@@ -223,10 +231,8 @@ def mostrar_dashboard_meets(supabase):
                 if df_detalhe.empty:
                     st.info("Não há leads parados nesta fase no período selecionado.")
                 else:
-                    # Agrupa os status, conta e ordena do maior pro menor
                     df_status_detalhe = df_detalhe.groupby('status_atual').size().reset_index(name='Quantidade').sort_values('Quantidade', ascending=False)
                     
-                    # Gera o gráfico vertical
                     fig_bar_detalhe = px.bar(
                         df_status_detalhe, 
                         x='status_atual', 
@@ -235,15 +241,68 @@ def mostrar_dashboard_meets(supabase):
                         color_discrete_sequence=[cor_barras]
                     )
                     
-                    # Ajuste de layout para o gráfico vertical
                     fig_bar_detalhe.update_traces(textposition='outside')
                     fig_bar_detalhe.update_layout(
                         xaxis_title="Status Atual", 
                         yaxis_title="Volume de Leads", 
                         margin=dict(l=0, r=0, t=30, b=0),
-                        xaxis_tickangle=-45 # Inclina o texto para caber certinho se tiver nomes compridos
+                        xaxis_tickangle=-45 
                     )
                     st.plotly_chart(fig_bar_detalhe, use_container_width=True)
+
+                # ==============================================================================
+                # NOVO GRÁFICO: DISTRIBUIÇÃO DAS TENTATIVAS (CONTAGEM POR Nº DE TENTATIVA)
+                # ==============================================================================
+                st.write("---")
+                titulo_secao("📞 Esforço: Distribuição das Tentativas de Contato")
+
+                if isinstance(dados_historico, str) and dados_historico.startswith("erro:"):
+                    st.error(f"Erro ao buscar histórico: {dados_historico}")
+                elif not dados_historico:
+                    st.info("Não há registros de histórico/tentativas para o período selecionado.")
+                else:
+                    df_historico = pd.DataFrame(dados_historico)
+                    
+                    col_tentativa = 'tentativa' if 'tentativa' in df_historico.columns else ('tentativas' if 'tentativas' in df_historico.columns else None)
+                    
+                    if col_tentativa:
+                        # Identifica o nome do operador que fez a ação
+                        df_historico['nome_operador'] = df_historico['usuario_id'].map(lambda uid: mapa_usuarios.get(uid, "Sistema / Não atribuído"))
+                        
+                        # Espelha o filtro de responsáveis da tela principal
+                        if ops_selecionados_leads:
+                            df_historico = df_historico[df_historico['nome_operador'].isin(ops_selecionados_leads)]
+                        
+                        # Converte para numérico e filtra apenas os registros que são de fato tentativas (> 0)
+                        df_historico[col_tentativa] = pd.to_numeric(df_historico[col_tentativa], errors='coerce').fillna(0)
+                        df_tentativas_validas = df_historico[df_historico[col_tentativa] > 0].copy()
+                        
+                        if not df_tentativas_validas.empty:
+                            # Agrupa pelo NÚMERO da tentativa e conta quantas vezes ocorreu (.size())
+                            df_agrupado = df_tentativas_validas.groupby(col_tentativa).size().reset_index(name='Qtd_Ocorrencias')
+                            
+                            # Cria um rótulo mais bonito para o gráfico (ex: "1ª Tentativa")
+                            df_agrupado['Label_Tentativa'] = df_agrupado[col_tentativa].apply(lambda x: f"{int(x)}ª Tentativa")
+                            df_agrupado = df_agrupado.sort_values(col_tentativa) # Ordena 1, 2, 3...
+                            
+                            fig_tentativas = px.bar(
+                                df_agrupado, 
+                                x='Label_Tentativa', 
+                                y='Qtd_Ocorrencias', 
+                                text='Qtd_Ocorrencias',
+                                color_discrete_sequence=['#eab308'] # Amarelo
+                            )
+                            fig_tentativas.update_traces(textposition='outside')
+                            fig_tentativas.update_layout(
+                                xaxis_title="Número da Tentativa", 
+                                yaxis_title="Quantidade Total Realizada", 
+                                margin=dict(l=0, r=0, t=30, b=0)
+                            )
+                            st.plotly_chart(fig_tentativas, use_container_width=True)
+                        else:
+                            st.info("Não há volume de tentativas registrado no período para os operadores selecionados.")
+                    else:
+                        st.warning("A coluna 'tentativa' não foi encontrada na tabela de histórico.")
 
                 # --- EXPORTAÇÃO DOS LEADS BRUTOS ---
                 st.write("---")
@@ -255,6 +314,7 @@ def mostrar_dashboard_meets(supabase):
                         "nome_pre_venda": "Pré-Venda", "nome_especialista": "Especialista Comercial",
                         "data_criacao": "Data Entrada"
                     }
+                        
                     cols_existentes_leads = [c for c in colunas_leads.keys() if c in df_filtrado_leads.columns]
                     df_leads_exibicao = df_filtrado_leads[cols_existentes_leads].rename(columns=colunas_leads)
 
