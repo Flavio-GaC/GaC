@@ -39,10 +39,12 @@ def mostrar_dashboard_meets(supabase):
         except Exception as e:
             return f"erro: {e}"
 
+    # NOVO: Recebe o parâmetro 'modo_producao' para decidir qual coluna do banco buscar
     @st.cache_data(show_spinner=False, ttl=1800)
-    def buscar_dados_leads(data_inicio_str, data_fim_str):
+    def buscar_dados_leads(data_inicio_str, data_fim_str, modo_producao=False):
+        coluna_data = "updated_at" if modo_producao else "created_at"
         try:
-            resp = supabase.table("leads").select("*").gte("created_at", f"{data_inicio_str} 00:00:00").lte("created_at", f"{data_fim_str} 23:59:59").limit(10000).execute()
+            resp = supabase.table("leads").select("*").gte(coluna_data, f"{data_inicio_str} 00:00:00").lte(coluna_data, f"{data_fim_str} 23:59:59").limit(10000).execute()
             return resp.data if resp.data else []
         except Exception as e:
             return f"erro: {e}"
@@ -56,10 +58,15 @@ def mostrar_dashboard_meets(supabase):
             return f"erro: {e}"
 
     # ==========================================
-    # FILTROS GLOBAIS (Aplicam para as duas abas)
+    # FILTROS GLOBAIS
     # ==========================================
     with st.container(border=True):
         st.subheader("⚙️ Filtros de Período")
+        
+        # NOVO: Botão Liga/Desliga da Visão de Produção
+        modo_producao = st.toggle("📊 **Ativar Visão de Produção:** Contabilizar ações/movimentações feitas no período (ignora a data em que o lead foi importada).", value=False)
+        st.write("") # Espaçamento
+        
         c1, c2, c3 = st.columns(3)
         
         data_padrao_inicio = date.today() - timedelta(days=30)
@@ -80,12 +87,16 @@ def mostrar_dashboard_meets(supabase):
             str_fim = d_fim.strftime("%Y-%m-%d")
             
             st.session_state["dash_dados_meets"] = buscar_dados_meets(str_ini, str_fim)
-            st.session_state["dash_dados_leads"] = buscar_dados_leads(str_ini, str_fim)
+            # Passa o estado do botão para a consulta do banco
+            st.session_state["dash_dados_leads"] = buscar_dados_leads(str_ini, str_fim, modo_producao)
             st.session_state["dash_dados_historico"] = buscar_dados_historico(str_ini, str_fim)
+            # Salva o estado do botão para alterar os títulos visuais abaixo
+            st.session_state["dash_estado_producao"] = modo_producao 
 
     dados_meets = st.session_state.get("dash_dados_meets", [])
     dados_leads = st.session_state.get("dash_dados_leads", [])
     dados_historico = st.session_state.get("dash_dados_historico", [])
+    estado_producao = st.session_state.get("dash_estado_producao", False)
 
     mapa_usuarios = obter_mapa_usuarios()
 
@@ -98,7 +109,7 @@ def mostrar_dashboard_meets(supabase):
         if isinstance(dados_leads, str) and dados_leads.startswith("erro:"):
             st.error(f"Erro ao buscar leads: {dados_leads}")
         elif not dados_leads:
-            st.warning("Nenhum lead importado no período selecionado.")
+            st.warning("Nenhum lead encontrado para os filtros selecionados.")
         else:
             df_leads = pd.DataFrame(dados_leads)
             
@@ -123,7 +134,11 @@ def mostrar_dashboard_meets(supabase):
                 taxa_conversao = (pdvs_gerados / total_leads * 100) if total_leads > 0 else 0
 
                 l1, l2, l3, l4 = st.columns(4)
-                with l1: render_card("Total de Leads", str(total_leads), "#1E3A8A")
+                
+                # O título do primeiro card muda para ficar claro qual filtro o usuário está vendo
+                titulo_kpi_1 = "Leads Movimentados" if estado_producao else "Total de Leads"
+                
+                with l1: render_card(titulo_kpi_1, str(total_leads), "#1E3A8A")
                 with l2: render_card("Avançaram pro Comercial", str(leads_fase2_mais), "#9333EA")
                 with l3: render_card("PDVs Gerados (Sucesso)", str(pdvs_gerados), "#059669")
                 with l4: render_card("Conversão", f"{taxa_conversao:.1f}%", "#D97706")
@@ -134,25 +149,24 @@ def mostrar_dashboard_meets(supabase):
                 cg1, cg2 = st.columns([3, 2])
 
                 with cg1:
-                    titulo_secao("Funil de Vendas")
+                    # Título do funil muda conforme o toggle
+                    titulo_funil = "Funil de Vendas (Visão de Produção)" if estado_producao else "Funil de Vendas (Data de Importação)"
+                    titulo_secao(titulo_funil)
                     
                     # CÁLCULOS DO FUNIL EM MEMÓRIA (Custo zero pro banco)
                     qtd_leads = total_leads
                     qtd_trabalhados = len(df_filtrado_leads[df_filtrado_leads['status_atual'] != 'PROSPECTAR'])
                     qtd_agendados = len(df_filtrado_leads[df_filtrado_leads['fase_atual'] == 2])
                     
-                    # Para saber os realizados: todo mundo da fase 2 pra cima JÁ fez meet, além de quem está com status 'MEET REALIZADO' agora
                     qtd_realizados = len(df_filtrado_leads[(df_filtrado_leads['fase_atual'] >= 2) | (df_filtrado_leads['status_atual'] == 'MEET REALIZADO')])
                     
                     qtd_cadastrados = len(df_filtrado_leads[df_filtrado_leads['fase_atual'] == 3])
                     qtd_pdv = pdvs_gerados
 
-                    # Função auxiliar para percentagem
                     def calc_perc(valor):
                         if qtd_leads == 0: return "0,00%"
                         return f"{(valor / qtd_leads) * 100:.2f}%".replace('.', ',')
 
-                    # Tabela em HTML idêntica à solicitada
                     html_tabela_funil = f"""
                     <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; text-align: center; border: 1px solid black; margin-top: 15px;">
                         <thead>
@@ -251,7 +265,7 @@ def mostrar_dashboard_meets(supabase):
                     st.plotly_chart(fig_bar_detalhe, use_container_width=True)
 
                 # ==============================================================================
-                # NOVO GRÁFICO: DISTRIBUIÇÃO DAS TENTATIVAS (CONTAGEM POR Nº DE TENTATIVA)
+                # DISTRIBUIÇÃO DAS TENTATIVAS 
                 # ==============================================================================
                 st.write("---")
                 titulo_secao("📞 Esforço: Distribuição das Tentativas de Contato")
@@ -266,31 +280,25 @@ def mostrar_dashboard_meets(supabase):
                     col_tentativa = 'tentativa' if 'tentativa' in df_historico.columns else ('tentativas' if 'tentativas' in df_historico.columns else None)
                     
                     if col_tentativa:
-                        # Identifica o nome do operador que fez a ação
                         df_historico['nome_operador'] = df_historico['usuario_id'].map(lambda uid: mapa_usuarios.get(uid, "Sistema / Não atribuído"))
                         
-                        # Espelha o filtro de responsáveis da tela principal
                         if ops_selecionados_leads:
                             df_historico = df_historico[df_historico['nome_operador'].isin(ops_selecionados_leads)]
                         
-                        # Converte para numérico e filtra apenas os registros que são de fato tentativas (> 0)
                         df_historico[col_tentativa] = pd.to_numeric(df_historico[col_tentativa], errors='coerce').fillna(0)
                         df_tentativas_validas = df_historico[df_historico[col_tentativa] > 0].copy()
                         
                         if not df_tentativas_validas.empty:
-                            # Agrupa pelo NÚMERO da tentativa e conta quantas vezes ocorreu (.size())
                             df_agrupado = df_tentativas_validas.groupby(col_tentativa).size().reset_index(name='Qtd_Ocorrencias')
-                            
-                            # Cria um rótulo mais bonito para o gráfico (ex: "1ª Tentativa")
                             df_agrupado['Label_Tentativa'] = df_agrupado[col_tentativa].apply(lambda x: f"{int(x)}ª Tentativa")
-                            df_agrupado = df_agrupado.sort_values(col_tentativa) # Ordena 1, 2, 3...
+                            df_agrupado = df_agrupado.sort_values(col_tentativa) 
                             
                             fig_tentativas = px.bar(
                                 df_agrupado, 
                                 x='Label_Tentativa', 
                                 y='Qtd_Ocorrencias', 
                                 text='Qtd_Ocorrencias',
-                                color_discrete_sequence=['#eab308'] # Amarelo
+                                color_discrete_sequence=['#eab308'] 
                             )
                             fig_tentativas.update_traces(textposition='outside')
                             fig_tentativas.update_layout(
