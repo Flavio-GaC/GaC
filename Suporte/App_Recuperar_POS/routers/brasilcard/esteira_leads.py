@@ -34,7 +34,9 @@ def renderizar_linha_do_tempo(historicos, mapa_usuarios):
         status = h.get('status_novo', 'Atualizado')
         obs = h.get('observacao', '')
         tentativa = h.get('tentativa')
-        tent_str = f" | Tentativa: {tentativa}" if tentativa and fase == 1 else ""
+        
+        # Correção: removido o "and fase == 1". Agora mostra em qualquer fase se houver o dado salvo.
+        tent_str = f" | Tentativa: {tentativa}" if tentativa else ""
 
         html += f"""
 <div style="position: relative; margin-bottom: 20px;">
@@ -110,8 +112,8 @@ def mostrar_esteira_leads(supabase):
         except Exception:
             setor_usuario = ""
 
-    status_fase1 = ["PROSPECTAR", "CONTATO REALIZADO", "QUALIFICADO", "MEET AGENDADO", "MEET REALIZADO", "RAMO QUE NÃO FECHA", "CONTATO INVÁLIDO", "JÁ POSSUI PDV", "FOLLOW-UP ENCERRADO", "SEM INTERESSE"]
-    status_fase2 = ["PROPOSTA APRESENTADA", "EM NEGOCIAÇÃO", "CLIENTE DESISTIU", "AGUARDANDO DOCUMENTAÇÃO", "AGUARDANDO RESPOSTA", "ENVIADO PARA CADASTRO"]+status_fase1
+    status_fase1 = ["PROSPECTAR", "CONTATO REALIZADO", "QUALIFICADO", "MEET AGENDADO", "MEET REALIZADO", "RAMO QUE NÃO FECHA", "CONTATO INVÁLIDO", "JÁ POSSUI PDV"]
+    status_fase2 = ["PROPOSTA APRESENTADA", "EM NEGOCIAÇÃO", "CLIENTE DESISTIU", "AGUARDANDO DOCUMENTAÇÃO", "AGUARDANDO RESPOSTA", "ENVIADO PARA CADASTRO", "JÁ POSSUI PDV"]
     status_fase3 = ["EM ANALISE", "CADASTRO REALIZADO", "AGUARDANDO PAGAMENTO PRIVATE/LINK", "AGUARDANDO PAGAMENTO DE ADESÃO", "NEGADO COMPROVANTE", "NEGADO BIO", "NEGADO RISCO", "NEGADO PRAZO", "NEGADO PELO SUPERVISOR", "NEGADO SEM RETORNO", "NEGADO CONTRATO", "CLIENTE DESISTIU", "CONTRATO APROVADO, AGUARDANDO ASSINATURA", "ASSINADO", "PDV GERADO"]
     opcoes_meio = ["", "Whatsapp", "Ligação - VOX", "Ligação - Whatsapp", "Fortics", "E-mail", "Meet"]
     setores_ind = ["PROSPECÇÃO PRÓPRIA", "PRÉ-VENDAS BCARD", "OUTROS SETORES", "LEADS ÍMPAR", "INDICAÇÃO INTERNA"]
@@ -133,14 +135,22 @@ def mostrar_esteira_leads(supabase):
     @st.cache_data(show_spinner=False, ttl=300)
     def buscar_leads_paginados_e_filtrados(usuario_id, nivel, setor, limit, offset, filtros):
         try:
-            query = supabase.table("leads").select("*", count="exact")
+            # 1. Se houver filtro de tentativa, altera o SELECT para fazer um INNER JOIN com o histórico
+            if filtros.get("tentativa"):
+                select_cols = "*, historico_leads!inner(tentativa)"
+            else:
+                select_cols = "*"
+
+            query = supabase.table("leads").select(select_cols, count="exact")
             
+            # Filtros de permissão
             if nivel >= 5:
                 if setor == "PRÉ-VENDA": query = query.eq("id_pre_venda", usuario_id)
                 elif setor == "COMERCIAL": query = query.eq("id_especialista", usuario_id)
                 elif setor == "BACKOFFICE": query = query.or_(f"fase_atual.eq.3,id_bko.eq.{usuario_id}")
                 else: query = query.eq("responsavel_atual", usuario_id)
 
+            # Filtros normais da tabela 'leads'
             if filtros.get("cnpj"):
                 cnpj_limpo = ''.join(filter(str.isdigit, str(filtros["cnpj"])))
                 query = query.ilike("cnpj", f"%{cnpj_limpo}%")
@@ -148,16 +158,34 @@ def mostrar_esteira_leads(supabase):
                 query = query.ilike("nome_empresa", f"%{filtros['nome']}%")
             if filtros.get("status"):
                 query = query.eq("status_atual", filtros["status"])
+            if filtros.get("telefone"):
+                query = query.ilike("telefone", f"%{filtros['telefone']}%")
+
+            # Filtro cruzado de Tentativa (usando a relação configurada no SELECT)
+            if filtros.get("tentativa"):
+                query = query.eq("historico_leads.tentativa", int(filtros["tentativa"]))
+
+            # Filtros de data
             if filtros.get("data_ini"):
                 query = query.gte("updated_at", f"{filtros['data_ini']} 00:00:00")
             if filtros.get("data_fim"):
                 query = query.lte("updated_at", f"{filtros['data_fim']} 23:59:59")
 
             resp = query.order("updated_at", desc=True).range(offset, offset + limit - 1).execute()
-            return {"data": resp.data, "count": resp.count}
+            
+            # Como o JOIN pode trazer linhas repetidas caso haja histórico duplicado da mesma tentativa,
+            # removemos duplicações rapidamente no Python pelo 'id' do lead:
+            leads_unicos = []
+            ids_vistos = set()
+            for row in resp.data:
+                if row["id"] not in ids_vistos:
+                    ids_vistos.add(row["id"])
+                    leads_unicos.append(row)
+
+            return {"data": leads_unicos, "count": resp.count}
         except Exception as e:
             return f"erro: {e}"
-
+    
     @st.cache_data(show_spinner=False, ttl=300)
     def buscar_historico_lote(lead_ids):
         if not lead_ids: return {}
@@ -229,11 +257,19 @@ def mostrar_esteira_leads(supabase):
     titulo_secao("🔍 Filtros de Busca")
     with st.container(border=True):
         with st.form("form_filtros_esteira"):
-            f1, f2 = st.columns(2)
+            f1, f2, f3 = st.columns(3) # Aumentado para 3 colunas para acomodar os novos filtros
             with f1:
                 filtro_cnpj = st.text_input("CNPJ", value=st.session_state["esteira_filtros"].get("cnpj", ""))
                 filtro_nome = st.text_input("Nome Fantasia / Empresa", value=st.session_state["esteira_filtros"].get("nome", ""))
             with f2:
+                # Adicionando os novos campos
+                filtro_telefone = st.text_input("Telefone", value=st.session_state["esteira_filtros"].get("telefone") or "")
+                
+                # Correção: O 'or 0' garante que o int() nunca receba um NoneType
+                valor_tentativa = st.session_state["esteira_filtros"].get("tentativa") or 0
+                filtro_tentativa = st.number_input("Tentativa (Nº)", min_value=0, step=1, value=int(valor_tentativa))
+               
+            with f3:
                 todos_status = [""] + status_fase1 + status_fase2 + status_fase3
                 todos_status_unicos = list(dict.fromkeys(todos_status))
                 
@@ -249,9 +285,15 @@ def mostrar_esteira_leads(supabase):
             c_btn1, c_btn2, c_btn3 = st.columns([1, 1, 3])
             with c_btn1:
                 if st.form_submit_button("Aplicar Filtros", type="primary", use_container_width=True):
+                    # Salvando os novos filtros no estado
                     st.session_state["esteira_filtros"] = {
-                        "cnpj": filtro_cnpj, "nome": filtro_nome, "status": filtro_status,
-                        "data_ini": filtro_dt_ini, "data_fim": filtro_dt_fim
+                        "cnpj": filtro_cnpj, 
+                        "nome": filtro_nome, 
+                        "telefone": filtro_telefone,
+                        "tentativa": filtro_tentativa if filtro_tentativa > 0 else None, # Salva nulo se for 0
+                        "status": filtro_status,
+                        "data_ini": filtro_dt_ini, 
+                        "data_fim": filtro_dt_fim
                     }
                     st.session_state["esteira_pagina"] = 1
                     buscar_leads_paginados_e_filtrados.clear()
@@ -313,6 +355,15 @@ def mostrar_esteira_leads(supabase):
         fase_atual = lead.get("fase_atual", 1)
         empresa = lead.get("nome_empresa", "Empresa não informada")
         
+        # 1. Puxa o histórico e calcula a tentativa automática
+        historico_deste_lead = mapa_historicos.get(lead_id, [])
+        max_tentativa = 0
+        for h in historico_deste_lead:
+            t = h.get("tentativa")
+            if t is not None and str(t).isdigit():
+                max_tentativa = max(max_tentativa, int(t))
+        nova_tentativa = max_tentativa + 1
+        
         pode_editar = False
         cor_status = "🔒" 
         is_gestao = (nivel_acesso < 5)
@@ -325,7 +376,7 @@ def mostrar_esteira_leads(supabase):
             cor_status = "🔴" if status_atual in ["CONTATO INVÁLIDO", "RAMO QUE NÃO FECHA", "JÁ POSSUI PDV"] else "🟣"
         elif fase_atual == 3 and (is_gestao or setor_usuario == "BACKOFFICE"):
             pode_editar = True
-            cor_status = "🔴" if status_atual in ["CONTATO INVÁLIDO", "RAMO QUE NÃO FECHA", "JÁ POSSUI PDV"] else "🟠"
+            cor_status = "🟠"
 
         if status_atual == "PDV GERADO":
             cor_status = "🏆"
@@ -373,7 +424,8 @@ def mostrar_esteira_leads(supabase):
                         meio_contato = st.selectbox("Meio de Contato", opcoes_meio, key=f"meio1_{lead_id}")
                         ramo_nao_fecha = st.selectbox("Ramo não fecha?", ["NÃO", "SIM"], key=f"ramo1_{lead_id}")
                     with col3:
-                        tentativa = st.number_input("Tentativa (Nº)", min_value=1, step=1, value=1, key=f"tent1_{lead_id}")
+                        # 2. O campo agora é automático e desativado (somente leitura)
+                        st.text_input("Tentativa (Nº)", value=f"{nova_tentativa}ª Tentativa", disabled=True, key=f"tent1_{lead_id}")
                     
                     especialista_selecionado = None
                     if novo_status == "MEET REALIZADO":
@@ -397,10 +449,12 @@ def mostrar_esteira_leads(supabase):
                             else:
                                 with st.spinner("Atualizando esteira..."):
                                     supabase.table("leads").update(update_lead).eq("id", lead_id).execute()
+                                    
+                                    # 3. Insere no banco com o valor automatizado
                                     supabase.table("historico_leads").insert({
                                         "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 1, 
                                         "status_anterior": status_atual, "status_novo": novo_status,
-                                        "tentativa": tentativa, "houve_contato": houve_contato, "observacao": obs
+                                        "tentativa": nova_tentativa, "houve_contato": houve_contato, "observacao": obs
                                     }).execute()
 
                                     buscar_leads_paginados_e_filtrados.clear()
@@ -411,11 +465,14 @@ def mostrar_esteira_leads(supabase):
                 # --- FASE 2: COMERCIAL ---
                 elif fase_atual == 2:
                     st.markdown("💼 **Ação: Especialista Comercial**")
-                    col1, col2 = st.columns(2)
+                    col1, col2, col3 = st.columns(3) # Modificado para 3 colunas
                     with col1:
                         novo_status = st.selectbox("Avanço da Negociação *", status_fase2, index=status_fase2.index(status_atual) if status_atual in status_fase2 else 0, key=f"st2_{lead_id}")
                     with col2:
                         meio_contato = st.selectbox("Meio de Contato", opcoes_meio, index=opcoes_meio.index("Meet") if "Meet" in opcoes_meio else 0, key=f"meio2_{lead_id}")
+                    with col3:
+                        # Exibe a tentativa travada na tela
+                        st.text_input("Tentativa (Nº)", value=f"{nova_tentativa}ª Tentativa", disabled=True, key=f"tent2_{lead_id}")
                     
                     if novo_status == "ENVIADO PARA CADASTRO":
                         st.info("🚀 **Fechamento concluído!** Ao salvar, este lead será enviado para a fila do Backoffice (BKO).")
@@ -436,6 +493,7 @@ def mostrar_esteira_leads(supabase):
                                 supabase.table("historico_leads").insert({
                                     "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 2, 
                                     "status_anterior": status_atual, "status_novo": novo_status,
+                                    "tentativa": nova_tentativa, # <-- Inserido para o Comercial
                                     "observacao": obs if obs else "Negociação atualizada."
                                 }).execute()
 
@@ -466,6 +524,8 @@ def mostrar_esteira_leads(supabase):
                         
                         setor_indicacao = st.selectbox("Setor de Indicação", [""] + setores_ind, index=([""] + setores_ind).index(lead.get("setor_indicacao")) if lead.get("setor_indicacao") in setores_ind else 0, key=f"setind_{lead_id}")
                         meio_fechamento = st.selectbox("Por onde fechou?", [""] + opcoes_meio, index=([""] + opcoes_meio).index(lead.get("meio_fechamento")) if lead.get("meio_fechamento") in ([""] + opcoes_meio) else 0, key=f"meiof_{lead_id}")
+                        # Exibe a tentativa na coluna direita para não desalinhar
+                        st.text_input("Tentativa (Nº)", value=f"{nova_tentativa}ª Tentativa", disabled=True, key=f"tent3_{lead_id}")
 
                     if novo_status == "PDV GERADO":
                         st.success("🎉 **PDV GERADO?** Ao salvar como PDV GERADO, o cadastro é concluído e o lead será bloqueado!")
@@ -498,6 +558,7 @@ def mostrar_esteira_leads(supabase):
                                     supabase.table("historico_leads").insert({
                                         "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 3, 
                                         "status_anterior": status_atual, "status_novo": novo_status,
+                                        "tentativa": nova_tentativa, # <-- Inserido para o BKO
                                         "observacao": obs if obs else "Atualização de BKO"
                                     }).execute()
 
