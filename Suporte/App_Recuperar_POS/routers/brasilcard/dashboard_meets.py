@@ -62,13 +62,13 @@ def mostrar_dashboard_meets(supabase):
     # ==========================================
     with st.container(border=True):
         st.subheader("⚙️ Filtros de Período")
-        
+
         # NOVO: Botão Liga/Desliga da Visão de Produção
         modo_producao = st.toggle("📊 **Ativar Visão de Produção:** Contabilizar ações/movimentações feitas no período (ignora a data em que o lead foi importada).", value=False)
         st.write("") # Espaçamento
-        
+
         c1, c2, c3 = st.columns(3)
-        
+
         data_padrao_inicio = date.today() - timedelta(days=30)
         data_padrao_fim = date.today()
 
@@ -85,7 +85,7 @@ def mostrar_dashboard_meets(supabase):
         with st.spinner("Extraindo volumetria do banco..."):
             str_ini = d_inicio.strftime("%Y-%m-%d")
             str_fim = d_fim.strftime("%Y-%m-%d")
-            
+
             st.session_state["dash_dados_meets"] = buscar_dados_meets(str_ini, str_fim)
             # Passa o estado do botão para a consulta do banco
             st.session_state["dash_dados_leads"] = buscar_dados_leads(str_ini, str_fim, modo_producao)
@@ -112,7 +112,7 @@ def mostrar_dashboard_meets(supabase):
             st.warning("Nenhum lead encontrado para os filtros selecionados.")
         else:
             df_leads = pd.DataFrame(dados_leads)
-            
+
             df_leads['nome_pre_venda'] = df_leads['id_pre_venda'].map(lambda uid: mapa_usuarios.get(uid, "Sem dono"))
             df_leads['nome_especialista'] = df_leads['id_especialista'].map(lambda uid: mapa_usuarios.get(uid, "Não atribuído"))
             df_leads['nome_responsavel'] = df_leads['responsavel_atual'].map(lambda uid: mapa_usuarios.get(uid, "Não atribuído"))
@@ -134,10 +134,10 @@ def mostrar_dashboard_meets(supabase):
                 taxa_conversao = (pdvs_gerados / total_leads * 100) if total_leads > 0 else 0
 
                 l1, l2, l3, l4 = st.columns(4)
-                
+
                 # O título do primeiro card muda para ficar claro qual filtro o usuário está vendo
                 titulo_kpi_1 = "Leads Movimentados" if estado_producao else "Total de Leads"
-                
+
                 with l1: render_card(titulo_kpi_1, str(total_leads), "#1E3A8A")
                 with l2: render_card("Avançaram pro Comercial", str(leads_fase2_mais), "#9333EA")
                 with l3: render_card("PDVs Gerados (Sucesso)", str(pdvs_gerados), "#059669")
@@ -152,14 +152,14 @@ def mostrar_dashboard_meets(supabase):
                     # Título do funil muda conforme o toggle
                     titulo_funil = "Funil de Vendas (Visão de Produção)" if estado_producao else "Funil de Vendas (Data de Importação)"
                     titulo_secao(titulo_funil)
-                    
+
                     # CÁLCULOS DO FUNIL EM MEMÓRIA (Custo zero pro banco)
                     qtd_leads = total_leads
                     qtd_trabalhados = len(df_filtrado_leads[df_filtrado_leads['status_atual'] != 'PROSPECTAR'])
                     qtd_agendados = len(df_filtrado_leads[df_filtrado_leads['fase_atual'] == 2])
-                    
+
                     qtd_realizados = len(df_filtrado_leads[(df_filtrado_leads['fase_atual'] >= 2) | (df_filtrado_leads['status_atual'] == 'MEET REALIZADO')])
-                    
+
                     qtd_cadastrados = len(df_filtrado_leads[df_filtrado_leads['fase_atual'] == 3])
                     qtd_pdv = pdvs_gerados
 
@@ -228,7 +228,7 @@ def mostrar_dashboard_meets(supabase):
                 # ==============================================================================
                 st.write("---")
                 titulo_secao("🔍 Diagnóstico: Onde os leads estão parados?")
-                
+
                 opcoes_fase = ["🔵 Fase 1 (Pré-Venda)", "🟣 Fase 2 (Comercial)", "🟠 Fase 3 (Backoffice)"]
                 fase_selecionada = st.radio("Selecione a fase para detalhar os status:", opcoes_fase, horizontal=True)
 
@@ -246,7 +246,7 @@ def mostrar_dashboard_meets(supabase):
                     st.info("Não há leads parados nesta fase no período selecionado.")
                 else:
                     df_status_detalhe = df_detalhe.groupby('status_atual').size().reset_index(name='Quantidade').sort_values('Quantidade', ascending=False)
-                    
+
                     fig_bar_detalhe = px.bar(
                         df_status_detalhe, 
                         x='status_atual', 
@@ -254,7 +254,7 @@ def mostrar_dashboard_meets(supabase):
                         text='Quantidade',
                         color_discrete_sequence=[cor_barras]
                     )
-                    
+
                     fig_bar_detalhe.update_traces(textposition='outside')
                     fig_bar_detalhe.update_layout(
                         xaxis_title="Status Atual", 
@@ -276,23 +276,23 @@ def mostrar_dashboard_meets(supabase):
                     st.info("Não há registros de histórico/tentativas para o período selecionado.")
                 else:
                     df_historico = pd.DataFrame(dados_historico)
-                    
+
                     col_tentativa = 'tentativa' if 'tentativa' in df_historico.columns else ('tentativas' if 'tentativas' in df_historico.columns else None)
-                    
+
                     if col_tentativa:
                         df_historico['nome_operador'] = df_historico['usuario_id'].map(lambda uid: mapa_usuarios.get(uid, "Sistema / Não atribuído"))
-                        
+
                         if ops_selecionados_leads:
                             df_historico = df_historico[df_historico['nome_operador'].isin(ops_selecionados_leads)]
-                        
+
                         df_historico[col_tentativa] = pd.to_numeric(df_historico[col_tentativa], errors='coerce').fillna(0)
                         df_tentativas_validas = df_historico[df_historico[col_tentativa] > 0].copy()
-                        
+
                         if not df_tentativas_validas.empty:
                             df_agrupado = df_tentativas_validas.groupby(col_tentativa).size().reset_index(name='Qtd_Ocorrencias')
                             df_agrupado['Label_Tentativa'] = df_agrupado[col_tentativa].apply(lambda x: f"{int(x)}ª Tentativa")
                             df_agrupado = df_agrupado.sort_values(col_tentativa) 
-                            
+
                             fig_tentativas = px.bar(
                                 df_agrupado, 
                                 x='Label_Tentativa', 
@@ -316,13 +316,19 @@ def mostrar_dashboard_meets(supabase):
                 st.write("---")
                 with st.expander("📊 Ver Base de Leads (Bruto) e Exportar"):
                     colunas_leads = {
-                        "cnpj": "CNPJ", "nome_empresa": "Empresa", "origem": "Origem",
-                        "fase_atual": "Fase", "status_atual": "Status", 
+                        "cnpj": "CNPJ", 
+                        "nome_empresa": "Empresa", 
+                        "origem": "Origem",
+                        "telefone": "Telefone",                # <-- COLUNA ADICIONADA
+                        "faturamento_mensal": "Faturamento",   # <-- COLUNA ADICIONADA
+                        "fase_atual": "Fase", 
+                        "status_atual": "Status", 
                         "nome_responsavel": "Responsável Atual",
-                        "nome_pre_venda": "Pré-Venda", "nome_especialista": "Especialista Comercial",
+                        "nome_pre_venda": "Pré-Venda", 
+                        "nome_especialista": "Especialista Comercial",
                         "data_criacao": "Data Entrada"
                     }
-                        
+
                     cols_existentes_leads = [c for c in colunas_leads.keys() if c in df_filtrado_leads.columns]
                     df_leads_exibicao = df_filtrado_leads[cols_existentes_leads].rename(columns=colunas_leads)
 
@@ -331,7 +337,7 @@ def mostrar_dashboard_meets(supabase):
                     buffer_leads = io.BytesIO()
                     with pd.ExcelWriter(buffer_leads, engine='xlsxwriter') as writer:
                         df_leads_exibicao.to_excel(writer, index=False, sheet_name='Leads')
-                    
+
                     st.download_button(
                         label="📥 Baixar Base de Leads (Excel)",
                         data=buffer_leads.getvalue(),
@@ -350,7 +356,7 @@ def mostrar_dashboard_meets(supabase):
             st.warning("Nenhum meet encontrado para o período.")
         else:
             df_meets = pd.DataFrame(dados_meets)
-            
+
             df_meets['nome_operador'] = df_meets['usuario_id'].map(lambda uid: mapa_usuarios.get(uid, "Desconhecido"))
             df_meets['data_criacao'] = pd.to_datetime(df_meets['created_at']).dt.strftime('%d/%m/%Y')
 
@@ -384,7 +390,7 @@ def mostrar_dashboard_meets(supabase):
                     df_temp_meet = df_filtrado_meets.groupby('data_criacao').size().reset_index(name='Qtd')
                     df_temp_meet['data_ordem'] = pd.to_datetime(df_temp_meet['data_criacao'], format='%d/%m/%Y')
                     df_temp_meet = df_temp_meet.sort_values('data_ordem')
-                    
+
                     fig_linha_meet = px.line(df_temp_meet, x='data_criacao', y='Qtd', markers=True, color_discrete_sequence=['#2563EB'])
                     fig_linha_meet.update_layout(xaxis_title="", yaxis_title="Meets", margin=dict(l=0, r=0, t=30, b=0))
                     st.plotly_chart(fig_linha_meet, use_container_width=True)
@@ -404,7 +410,7 @@ def mostrar_dashboard_meets(supabase):
                         "nome_lojista": "Lojista", "contato_lojista": "Contato", "data_meet": "Data Agendada",
                         "status_meet": "Status", "observacao": "Observação", "data_criacao": "Data de Criação"
                     }
-                    
+
                     cols_existentes_meets = [c for c in colunas_amigaveis.keys() if c in df_filtrado_meets.columns]
                     df_meets_exibicao = df_filtrado_meets[cols_existentes_meets].rename(columns=colunas_amigaveis)
 
@@ -413,7 +419,7 @@ def mostrar_dashboard_meets(supabase):
                     buffer_meets = io.BytesIO()
                     with pd.ExcelWriter(buffer_meets, engine='xlsxwriter') as writer:
                         df_meets_exibicao.to_excel(writer, index=False, sheet_name='Meets')
-                    
+
                     st.download_button(
                         label="📥 Baixar Dados de Meets (Excel)",
                         data=buffer_meets.getvalue(),
