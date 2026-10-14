@@ -145,7 +145,7 @@ def mostrar_novo_usuario(supabase):
             elif nivel_atual == 2:
                 query = query.eq("empresa_id", empresa_logada)
             elif nivel_atual == 3:
-                query = query.eq("empresa_id", empresa_logada).eq("setor", setor_logado)
+                query = query.eq("empresa_id", empresa_logada)
 
             resp_busca = query.order("nome_completo").execute()
             usuarios_lista = resp_busca.data
