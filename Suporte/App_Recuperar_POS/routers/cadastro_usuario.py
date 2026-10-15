@@ -238,7 +238,7 @@ def mostrar_novo_usuario(supabase):
                                         }
 
                                         # Se for nível 1 ou 2, permite atualizar o setor
-                                        if nivel_atual <= 2:
+                                        if nivel_atual <= 3:
                                             dados_atualizacao["setor"] = novo_setor
                                         
                                         # Se for nível 1, permite atualizar a empresa
