@@ -206,7 +206,7 @@ def mostrar_novo_usuario(supabase):
                                 setores_disponiveis.append(u_setor)
                             
                             idx_setor = setores_disponiveis.index(u_setor)
-                            bloquear_setor = (nivel_atual >= 3)
+                            bloquear_setor = (nivel_atual > 3)
                             
                             novo_setor = st.selectbox(
                                 "Setor", 
