@@ -68,7 +68,7 @@ def mostrar_devolucao(supabase):
 
             with col1:
                 pdv = st.text_input("Código do PDV *", help="Obrigatório. Deve existir na tabela PDV.", max_chars=10)
-                modelo = st.selectbox("Modelo da Máquina", ["", "S920", "P2 A11", "D195", "Q92X", "C680"])
+                modelo = st.selectbox("Modelo da Máquina", ["", "S920", "P2 A11", "D195", "Q92X"])
                 qtd = st.number_input("Quantidade", min_value=1, step=1)
                 valor_reais = st.number_input("Valor (R$)", value=1050.0, format="%.2f")
 
@@ -161,7 +161,7 @@ Número do Pedido de Coleta: {pac_final or 'N/A'}
 Autorizador da Postagem: BOLT CARD INSTITUICAO DE PAGAMENTOS LTDA
 Quantidade de objeto: {qtd}
 Número(s) do(s) objeto(s): {rastreio_final or 'N/A'}
-Data da Coleta: {data_atual_str}
+Data da Coleta: Próximo dia último após o recebimento desta mensagem
 Conteúdo: {qtd}, {modelo or 'N/A'}
 
 Não é necessário imprimir este e-mail.
