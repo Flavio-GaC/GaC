@@ -21,11 +21,14 @@ def mostrar_login(supabase):
             unsafe_allow_html=True
         )
 
-        email = st.text_input("Usuário / E-mail", placeholder="nome@empresa.com.br")
-        senha = st.text_input("Senha", type="password", placeholder="••••••••")
+        # Envolve os campos e o botão no formulário
+        with st.form("form_login", border=False):
+            email = st.text_input("Usuário / E-mail", placeholder="nome@empresa.com.br")
+            senha = st.text_input("Senha", type="password", placeholder="••••••••")
+            st.write("")
+            botao_entrar = st.form_submit_button("Entrar", type="primary", use_container_width=True)
 
-        st.write("")
-        if st.button("Entrar", type="primary", use_container_width=True):
+        if botao_entrar:
             with st.spinner("Validando credenciais..."):
                 try:
                     resposta_auth = supabase.auth.sign_in_with_password({

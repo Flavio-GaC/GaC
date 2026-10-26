@@ -398,6 +398,12 @@ def tema_login():
         .block-container { padding: 1.5rem 1rem; }
         [data-testid="column"]:nth-child(2) { padding: 1.75rem 1.25rem; }
     }
+    div[data-testid="stForm"] {
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
