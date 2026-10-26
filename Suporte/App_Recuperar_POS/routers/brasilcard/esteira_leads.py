@@ -499,7 +499,7 @@ def mostrar_esteira_leads(supabase):
                             # Variável update_lead 100% protegida dentro do Else
                             # Variável update_lead 100% protegida dentro do Else
                             update_lead = {"status_atual": novo_status, "meio_fechamento": meio_contato, "updated_at": "now()"}
-                            if novo_status == "MEET REALIZADO":
+                            if novo_status == "REALIZADO - MEET":
                                 id_esp = mapa_especialistas[especialista_selecionado]
                                 update_lead.update({"fase_atual": 2, "id_especialista": id_esp, "responsavel_atual": id_esp, "meio_fechamento": "MEET"})
 
