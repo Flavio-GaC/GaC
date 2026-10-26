@@ -113,6 +113,7 @@ def mostrar_esteira_leads(supabase):
 
     status_fase1 = [
     "PRIMEIRO CONTATO REALIZADO",
+    "MEET AGENDADO",
     "REAGENDAMENTO",
     "SEM RETORNO",
     "TEM INTERESSE - REUNIÃO VIA MEET",
