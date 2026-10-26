@@ -111,8 +111,72 @@ def mostrar_esteira_leads(supabase):
         except Exception:
             setor_usuario = ""
 
-    status_fase1 = ["PROSPECTAR", "CONTATO REALIZADO", "QUALIFICADO", "MEET AGENDADO", "MEET REALIZADO", "RAMO QUE NÃO FECHA", "CONTATO INVÁLIDO", "JÁ POSSUI PDV", "FOLLOW-UP ENCERRADO", "SEM INTERESSE"]
-    status_fase2 = ["PROPOSTA APRESENTADA", "EM NEGOCIAÇÃO", "CLIENTE DESISTIU", "AGUARDANDO DOCUMENTAÇÃO", "AGUARDANDO RESPOSTA", "ENVIADO PARA CADASTRO", "JÁ POSSUI PDV"] + status_fase1
+    status_fase1 = [
+    "REAGENDAMENTO",
+    "SEM RETORNO",
+    "TEM INTERESSE - REUNIÃO VIA MEET",
+    "SEM PERFIL - NÃO POSSUI LOJA FISICA",
+    "SEM PERFIL - SEGMENTO RUIM",
+    "SEM PERFIL - LOJA PEQUENA",
+    "SEM PERFIL - CLIENTE PF",
+    "INVALIDO - CNPJ",
+    "INVALIDO - CONTATO",
+    "SEM INTERESSE - TAXA ADESÃO",
+    "SEM INTERESSE - DESEJA CDC VIA CARNÊ",
+    "SEM INTERESSE - DESISTIU",
+    "SEM INTERESSE - SEM TEMPO PARA REUNIAO",
+    "TEM INTERESSE - REUNIÃO VIA LIGAÇÃO",
+    "TEM INTERESSE - PROPOSTA PELO WHATS",
+    "REALIZADO - LIGAÇÃO",
+    "REALIZADO - PROPOSTA WHATS",
+    "REALIZADO - MEET"
+    ]
+
+    status_fase2 = [
+    "SEM RETORNO",
+    "COBRANÇA ADESÃO",
+    "INDICAÇÃO LEAD - RETORNO AGENDADO - LIGAÇÃO",
+    "INDICAÇÃO LEAD - RETORNO AGENDADO - E-MAIL",
+    "INDICAÇÃO LEAD - RETORNO AGENDADO - MEET",
+    "INDICAÇÃO LEAD - RETORNO AGENDADO - WHATSAPP",
+    "INDICAÇÃO LEAD - NÃO TEM INTERESSE - TAXA UCC",
+    "INDICAÇÃO LEAD - NÃO TEM INTERESSE - NÃO QUIS DETALHAR",
+    "INDICAÇÃO LEAD - NÃO TEM INTERESSE - TAXA ADESÃO",
+    "INDICAÇÃO LEAD - NÃO TEM INTERESSE - BORDERÔ",
+    "INDICAÇÃO LEAD - NÃO TEM INTERESSE - TAXA DE JUROS",
+    "INDICAÇÃO LEAD - FECHADO - AGUARDANDO ISENÇÃO DE ADESÃO",
+    "INDICAÇÃO LEAD - FECHADO - AGUARDANDO ADESÃO",
+    "INDICAÇÃO M0 - RETORNO AGENDADO - WHATSAPP",
+    "INDICAÇÃO M0 - RETORNO AGENDADO - LIGAÇÃO",
+    "INDICAÇÃO M0 - RETORNO AGENDADO - E-MAIL",
+    "INDICAÇÃO M0 - RETORNO AGENDADO - MEET",
+    "INDICAÇÃO M0 - NÃO TEM INTERESSE - TAXA UCC",
+    "INDICAÇÃO M0 - NÃO TEM INTERESSE - NÃO QUIS DETALHAR",
+    "INDICAÇÃO M0 - NÃO TEM INTERESSE - TAXA ADESÃO",
+    "INDICAÇÃO M0 - NÃO TEM INTERESSE - BORDERÔ",
+    "INDICAÇÃO M0 - NÃO TEM INTERESSE - TAXA DE JUROS",
+    "INDICAÇÃO M0 - FECHADO - AGUARDANDO ISENÇÃO DE ADESÃO",
+    "EM NEGOCIAÇÃO",
+    "INDICAÇÃO M0 - FECHADO - AGUARDANDO ADESÃO",
+    "SEM PERFIL - NÃO POSSUI LOJA FISICA",
+    "SEM PERFIL - SEGMENTO RUIM",
+    "SEM PERFIL - LOJA PEQUENA",
+    "RETORNO AGENDADO - WHATSAPP",
+    "RETORNO AGENDADO - LIGAÇÃO",
+    "RETORNO AGENDADO - E-MAIL",
+    "RETORNO AGENDADO - MEET",
+    "NÃO TEM INTERESSE - TAXA UCC",
+    "NÃO TEM INTERESSE - NÃO QUIS DETALHAR",
+    "NÃO TEM INTERESSE - TAXA ADESÃO",
+    "NÃO TEM INTERESSE - BORDERÔ",
+    "NÃO TEM INTERESSE - TAXA DE JUROS",
+    "NÃO TEM INTERESSE - JÁ POSSUI CADASTRO",
+    "FECHADO - AGUARDANDO ADESÃO",
+    "FECHADO - AGUARDANDO ISENÇÃO DE ADESÃO",
+    "FECHADO - AGUARDANDO DOCUMENTOS",
+    "FECHADO - GEROU PDV"
+    ]
+
     status_fase3 = ["EM ANALISE", "CADASTRO REALIZADO", "AGUARDANDO PAGAMENTO PRIVATE/LINK", "AGUARDANDO PAGAMENTO DE ADESÃO", "NEGADO COMPROVANTE", "NEGADO BIO", "NEGADO RISCO", "NEGADO PRAZO", "NEGADO PELO SUPERVISOR", "NEGADO SEM RETORNO", "NEGADO CONTRATO", "CLIENTE DESISTIU", "CONTRATO APROVADO, AGUARDANDO ASSINATURA", "ASSINADO", "PDV GERADO"]
     opcoes_meio = ["", "Whatsapp", "Ligação - VOX", "Ligação - Whatsapp", "Fortics", "E-mail", "Meet"]
     setores_ind = ["PROSPECÇÃO PRÓPRIA", "PRÉ-VENDAS BCARD", "OUTROS SETORES", "LEADS ÍMPAR", "INDICAÇÃO INTERNA"]
@@ -408,13 +472,13 @@ def mostrar_esteira_leads(supabase):
                         novo_status = st.selectbox("Status *", status_fase1, index=status_fase1.index(status_atual) if status_atual in status_fase1 else 0, key=f"st1_{lead_id}")
                         houve_contato = st.selectbox("Houve Contato?", ["NÃO", "SIM"], key=f"ct1_{lead_id}")
                     with col2:
-                        meio_contato = st.selectbox("Meio de Contato", opcoes_meio, key=f"meio1_{lead_id}")
+                        meio_contato = st.selectbox("Meio de Contato *", opcoes_meio, key=f"meio1_{lead_id}")
                         ramo_nao_fecha = st.selectbox("Ramo não fecha?", ["NÃO", "SIM"], key=f"ramo1_{lead_id}")
                     with col3:
                         st.text_input("Tentativa (Nº)", value=f"{nova_tentativa}ª Tentativa", disabled=True, key=f"tent1_{lead_id}")
 
                     especialista_selecionado = None
-                    if novo_status == "MEET REALIZADO":
+                    if novo_status == "REALIZADO - MEET":
                         st.info("🔄 O lead será transferido para a Fase 2 (Especialista).")
                         if mapa_especialistas:
                             especialista_selecionado = st.selectbox("Selecione o Especialista *", list(mapa_especialistas.keys()), key=f"esp_{lead_id}")
@@ -423,11 +487,14 @@ def mostrar_esteira_leads(supabase):
                     obs = st.text_area("Observações (Resumo do Contato)" if novo_status != "RAMO QUE NÃO FECHA" else "Observações (Obrigatório) *", placeholder=placeholder_obs, key=f"obs1_{lead_id}")
 
                     if st.button("Salvar Pré-Venda", key=f"btn1_{lead_id}", type="primary"):
-                        if novo_status == "MEET REALIZADO" and not especialista_selecionado:
+                        if novo_status == "REALIZADO - MEET" and not especialista_selecionado:
                             st.warning("Selecione um Especialista para transferir o lead.")
                         elif novo_status == "RAMO QUE NÃO FECHA" and not obs.strip():
                             st.error("⚠️ Para o status 'RAMO QUE NÃO FECHA', é obrigatório preencher a observação justificando o motivo.")
+                        elif not meio_contato.strip():
+                            st.error("⚠️ O campo 'Meio de Contato' é obrigatório. Selecione uma opção válida.")
                         else:
+                            # Variável update_lead 100% protegida dentro do Else
                             # Variável update_lead 100% protegida dentro do Else
                             update_lead = {"status_atual": novo_status, "meio_fechamento": meio_contato, "updated_at": "now()"}
                             if novo_status == "MEET REALIZADO":
@@ -456,11 +523,13 @@ def mostrar_esteira_leads(supabase):
                 # --- FASE 2: COMERCIAL ---
                 elif fase_atual == 2:
                     st.markdown("💼 **Ação: Especialista Comercial**")
-                    col1, col2, col3 = st.columns(3)
+                    
+                    # Proporção 2:1:1 dobra a primeira coluna e reduz as outras pela metade
+                    col1, col2, col3 = st.columns([2, 1, 1]) 
                     with col1:
                         novo_status = st.selectbox("Avanço da Negociação *", status_fase2, index=status_fase2.index(status_atual) if status_atual in status_fase2 else 0, key=f"st2_{lead_id}")
                     with col2:
-                        meio_contato = st.selectbox("Meio de Contato", opcoes_meio, index=opcoes_meio.index("Meet") if "Meet" in opcoes_meio else 0, key=f"meio2_{lead_id}")
+                        meio_contato = st.selectbox("Meio de Contato *", opcoes_meio, index=opcoes_meio.index("Meet") if "Meet" in opcoes_meio else 0, key=f"meio2_{lead_id}")
                     with col3:
                         st.text_input("Tentativa (Nº)", value=f"{nova_tentativa}ª Tentativa", disabled=True, key=f"tent2_{lead_id}")
 
@@ -473,6 +542,8 @@ def mostrar_esteira_leads(supabase):
                     if st.button("Atualizar Negociação", key=f"btn2_{lead_id}", type="primary"):
                         if novo_status == "RAMO QUE NÃO FECHA" and not obs.strip():
                             st.error("⚠️ Para o status 'RAMO QUE NÃO FECHA', é obrigatório preencher a observação justificando o motivo.")
+                        elif not meio_contato.strip():
+                            st.error("⚠️ O campo 'Meio de Contato' é obrigatório. Selecione uma opção válida.")
                         else:
                             # Variável update_lead 100% protegida dentro do Else
                             update_lead = {"status_atual": novo_status, "meio_fechamento": meio_contato, "updated_at": "now()"}

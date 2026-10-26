@@ -10,7 +10,7 @@ from routers.login import mostrar_login
 from routers.homepage import mostrar_home
 from routers.bolt.devolucao import mostrar_devolucao
 from routers.brasilcard.registro_meet import mostrar_meet
-from routers.brasilcard.dashboard_meets import mostrar_dashboard_meets
+from routers.brasilcard.dashboard import mostrar_dashboard
 from routers.cadastro_usuario import mostrar_novo_usuario
 from routers.lojistas import mostrar_lojistas
 from routers.brasilcard.upload_leads import mostrar_upload_leads
@@ -74,8 +74,8 @@ def render_usuario():
 def render_lojistas():
     mostrar_lojistas(supabase)
 
-def render_dashboard_meet():
-    mostrar_dashboard_meets(supabase)
+def render_dashboard():
+    mostrar_dashboard(supabase)
 
 def render_upload_leads():
     mostrar_upload_leads(supabase)
@@ -138,7 +138,7 @@ else:
     if nivel_acesso <= 2:
         paginas["Administrativo"] = [
             st.Page(render_usuario, title="Cadastrar Usuário", icon="👤"),
-            st.Page(render_dashboard_meet, title="Dashboard Meets", icon="🎯")
+            st.Page(render_dashboard, title="Dashboard", icon="🎯")
             ]
         paginas["BrasilCard"] = [
                                 st.Page(render_meet, title="Meets", icon="🎥"),
@@ -153,7 +153,7 @@ else:
         if nivel_acesso <= 4:
             paginas["Administrativo"] = [
                         st.Page(render_usuario, title="Cadastrar Usuário", icon="👤"),
-                        st.Page(render_dashboard_meet, title="Dashboard Meets", icon="🎯"),
+                        st.Page(render_dashboard, title="Dashboard Meets", icon="🎯"),
                         st.Page(render_upload_leads, title="Importar Leads", icon="🧲")
                         ]
             paginas["BrasilCard"] = [
@@ -170,7 +170,7 @@ else:
         if nivel_acesso <= 4:
             paginas["Administrativo"] = [
                                     st.Page(render_usuario, title="Cadastrar Usuário", icon="👤"),
-                                    st.Page(render_dashboard_meet, title="Dashboard Meets", icon="🎯")
+                                    st.Page(render_dashboard, title="Dashboard Meets", icon="🎯")
                                     ]
             paginas["Bolt"] = [
                         st.Page(render_devolucao_maquinas, title="Devoluções", icon="📦"),
