@@ -1,7 +1,10 @@
 import streamlit as st
+import re
 import pandas as pd
 from datetime import datetime, timezone
+import streamlit.components.v1 as components
 from themes.theme import cabecalho_pagina, titulo_secao
+
 
 def render_card(titulo, valor, cor_fundo):
     st.markdown(f"""
@@ -92,9 +95,251 @@ def verificar_duplo_clique(supabase, lead_id, update_lead):
     except Exception:
         return False
 
+LISTA_SEGMENTOS = [
+    "CALÇADOS",
+    "CLÍNICA ODONTOLÓGICA",
+    "COLCHÃO",
+    "ELETRODOMÉSTICO",
+    "FARMÁCIA",
+    "LOJA_DE_BRINQUEDOS",
+    "LOJA_DE_ROUPAS",
+    "MATERIAIS_DE_CONSTRUÇÃO",
+    "MÓVEIS",
+    "MÓVEIS_E_ELETRO",
+    "ODONTOLOGIA",
+    "ÓTICA",
+    "OUTROS",
+    "SUPERMERCADO",
+    "TELEFONIA"
+]
+
+@st.dialog("➕ Cadastrar Novo Lead")
+def modal_cadastrar_lead(supabase, uid, setor_usuario, buscar_leads_paginados_e_filtrados, buscar_kpis_esteira):
+    # Injeção sincronizada com o Virtual DOM do React (evita perda de dados no blur)
+    components.html("""
+    <script>
+    function aplicarMascaras() {
+        try {
+            const doc = window.parent.document;
+            if (!doc) return;
+
+            // Função que injeta o valor na árvore do React sem que ele seja apagado ao sair do campo
+            function setReactValue(input, novoValor) {
+                if (input.value === novoValor) return;
+                const lastValue = input.value;
+                const nativeSetter = Object.getOwnPropertyDescriptor(
+                    window.HTMLInputElement.prototype,
+                    "value"
+                ).set;
+
+                if (nativeSetter) {
+                    nativeSetter.call(input, novoValor);
+                } else {
+                    input.value = novoValor;
+                }
+
+                // Sincroniza o rastreador interno do React
+                if (input._valueTracker) {
+                    input._valueTracker.setValue(lastValue);
+                }
+
+                // Dispara o evento reconhecido pelo ciclo de vida do React
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+
+            // 1. Máscara de CNPJ: 00.000.000/0000-00
+            const cnpjInput = doc.querySelector('input[aria-label="CNPJ *"]');
+            if (cnpjInput && !cnpjInput.dataset.maskAtiva) {
+                cnpjInput.dataset.maskAtiva = "true";
+                cnpjInput.setAttribute("inputmode", "numeric");
+                let formatandoCnpj = false;
+
+                cnpjInput.addEventListener('input', function(e) {
+                    if (formatandoCnpj) return;
+                    let v = e.target.value.replace(/\\D/g, '').slice(0, 14);
+                    let formatado = v;
+                    if (v.length > 12) formatado = v.replace(/^(\\d{2})(\\d{3})(\\d{3})(\\d{4})(\\d{1,2})$/, '$1.$2.$3/$4-$5');
+                    else if (v.length > 8) formatado = v.replace(/^(\\d{2})(\\d{3})(\\d{3})(\\d{1,4})$/, '$1.$2.$3/$4');
+                    else if (v.length > 5) formatado = v.replace(/^(\\d{2})(\\d{3})(\\d{1,3})$/, '$1.$2.$3');
+                    else if (v.length > 2) formatado = v.replace(/^(\\d{2})(\\d{1,3})$/, '$1.$2');
+
+                    if (e.target.value !== formatado) {
+                        formatandoCnpj = true;
+                        setReactValue(e.target, formatado);
+                        formatandoCnpj = false;
+                    }
+                });
+            }
+
+            // 2. Máscara de Telefone: (XX) XXXXX-XXXX
+            const telInput = doc.querySelector('input[aria-label="Telefone *"]');
+            if (telInput && !telInput.dataset.maskAtiva) {
+                telInput.dataset.maskAtiva = "true";
+                telInput.setAttribute("inputmode", "numeric");
+                let formatandoTel = false;
+
+                telInput.addEventListener('input', function(e) {
+                    if (formatandoTel) return;
+                    let v = e.target.value.replace(/\\D/g, '').slice(0, 11);
+                    let formatado = v;
+                    if (v.length > 10) formatado = v.replace(/^(\\d{2})(\\d{5})(\\d{4})$/, '($1) $2-$3');
+                    else if (v.length > 6) formatado = v.replace(/^(\\d{2})(\\d{4})(\\d{1,4})$/, '($1) $2-$3');
+                    else if (v.length > 2) formatado = v.replace(/^(\\d{2})(\\d{1,4})$/, '($1) $2');
+                    else if (v.length > 0) formatado = v.replace(/^(\\d*)$/, '($1');
+
+                    if (e.target.value !== formatado) {
+                        formatandoTel = true;
+                        setReactValue(e.target, formatado);
+                        formatandoTel = false;
+                    }
+                });
+            }
+
+            // 3. Máscara de Faturamento: R$ X.XXX,XX
+            const fatInput = doc.querySelector('input[aria-label="Faturamento *"]');
+            if (fatInput && !fatInput.dataset.maskAtiva) {
+                fatInput.dataset.maskAtiva = "true";
+                fatInput.setAttribute("inputmode", "numeric");
+                let formatandoFat = false;
+
+                fatInput.addEventListener('input', function(e) {
+                    if (formatandoFat) return;
+                    let v = e.target.value.replace(/\\D/g, '');
+                    let formatado = '';
+                    if (v) {
+                        let num = (parseInt(v, 10) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        formatado = 'R$ ' + num;
+                    }
+
+                    if (e.target.value !== formatado) {
+                        formatandoFat = true;
+                        setReactValue(e.target, formatado);
+                        formatandoFat = false;
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn("Erro ao sincronizar máscaras:", e);
+        }
+    }
+
+    const timer = setInterval(aplicarMascaras, 200);
+    setTimeout(() => clearInterval(timer), 3500);
+    </script>
+    """, height=0, width=0)
+
+    with st.form("form_novo_lead_modal", clear_on_submit=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            cnpj_input = st.text_input("CNPJ *", placeholder="00.000.000/0000-00")
+            nome_contato = st.text_input("Nome do Contato *", placeholder="Ex: João Silva")
+            segmento = st.selectbox("Segmento/Ramo *", options=LISTA_SEGMENTOS, index=None, placeholder="Selecione o Segmento...")
+        with c2:
+            nome_empresa = st.text_input("Nome da Empresa *", placeholder="Ex: Loja Silva Ltda")
+            telefone = st.text_input("Telefone *", placeholder="(86) 99999-8888")
+            faturamento = st.text_input("Faturamento *", placeholder="R$ 0,00")
+
+        st.write("")
+        btn_salvar = st.form_submit_button("Salvar Lead", type="primary", use_container_width=True)
+
+        if btn_salvar:
+            # 1. Validação de preenchimento obrigatório
+            if not cnpj_input.strip():
+                st.error("⚠️ O campo 'CNPJ' é obrigatório.")
+                return
+            if not nome_empresa.strip():
+                st.error("⚠️ O campo 'Nome da Empresa' é obrigatório.")
+                return
+            if not nome_contato.strip():
+                st.error("⚠️ O campo 'Nome do Contato' é obrigatório.")
+                return
+            if not segmento:
+                st.error("⚠️ O campo 'Segmento/Ramo' é obrigatório.")
+                return
+            if not telefone.strip():
+                st.error("⚠️ O campo 'Telefone' é obrigatório.")
+                return
+            if not faturamento.strip():
+                st.error("⚠️ O campo 'Faturamento' é obrigatório.")
+                return
+
+            # 2. Extração numérica estrita para o banco
+            cnpj_limpo = re.sub(r"\D", "", cnpj_input)
+            tel_limpo = re.sub(r"\D", "", telefone)
+            fat_limpo = re.sub(r"\D", "", faturamento)
+
+            # 3. Validação estrutural do CNPJ (14 dígitos)
+            if len(cnpj_limpo) != 14:
+                st.error("⚠️ CNPJ inválido! O CNPJ deve conter exatamente 14 dígitos numéricos.")
+                return
+
+            # 4. Verificação de duplicidade de CNPJ no banco
+            try:
+                resp_existente = supabase.table("leads").select("id").eq("cnpj", cnpj_limpo).execute()
+                if resp_existente.data:
+                    st.error("⚠️ O CNPJ já existe na base!")
+                    return
+            except Exception as e:
+                st.error(f"Erro ao verificar duplicidade de CNPJ: {e}")
+                return
+
+            # 5. Validação estrutural do Telefone (DDD + 8 ou 9 dígitos)
+            if len(tel_limpo) < 10:
+                st.error("⚠️ Telefone inválido! Informe o DDD e o número completo (mínimo de 10 dígitos).")
+                return
+
+            if not fat_limpo:
+                st.error("⚠️ Faturamento inválido! Digite um valor numérico válido.")
+                return
+
+            # 6. Definição de Fase, Status e Direcionamento por Setor
+            setor_upper = str(setor_usuario).strip().upper()
+            fase_inicial = 2 if setor_upper == "COMERCIAL" else 1
+            status_inicial = "EM NEGOCIAÇÃO" if setor_upper == "COMERCIAL" else "PROSPECTAR"
+
+            lead_data = {
+                "cnpj": cnpj_limpo,
+                "nome_empresa": nome_empresa.strip(),
+                "contato_loja": nome_contato.strip(),
+                "segmento": segmento,
+                "telefone": tel_limpo,
+                "faturamento_mensal": fat_limpo,
+                "origem": "PROSPECÇÃO PRÓPRIA",
+                "fase_atual": fase_inicial,
+                "status_atual": status_inicial,
+                "updated_at": "now()",
+                "created_at": "now()"
+            }
+
+            if setor_upper == "PRÉ-VENDA":
+                lead_data["responsavel_atual"] = uid
+                lead_data["id_pre_venda"] = uid
+            elif setor_upper == "COMERCIAL":
+                lead_data["responsavel_atual"] = uid
+                lead_data["id_pre_venda"] = uid
+                lead_data["id_especialista"] = uid
+            else:
+                lead_data["responsavel_atual"] = uid
+
+            # 7. Inserção no Supabase
+            try:
+                with st.spinner("Gravando lead no banco..."):
+                    supabase.table("leads").insert(lead_data).execute()
+                    
+                    st.session_state["esteira_pagina"] = 1
+                    st.session_state["aviso_novo_lead"] = True
+                    buscar_leads_paginados_e_filtrados.clear()
+                    buscar_kpis_esteira.clear()
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao inserir lead no banco de dados: {e}")
 
 def mostrar_esteira_leads(supabase):
     cabecalho_pagina("Esteira de Vendas", "Gerencie seus leads, avance as negociações e acompanhe o funil em tempo real.")
+
+    # Exibe o pop-up no canto superior direito se um lead acabou de ser criado
+    if st.session_state.pop("aviso_novo_lead", False):
+        st.toast("✅ Novo lead adicionado à sua esteira.")
 
     uid = st.session_state.get("uid")
     nivel_acesso = int(st.session_state.get("nivel_acesso", 5))
@@ -182,7 +427,7 @@ def mostrar_esteira_leads(supabase):
     status_fase3 = ["EM ANALISE", "CADASTRO REALIZADO", "AGUARDANDO PAGAMENTO PRIVATE/LINK", "AGUARDANDO PAGAMENTO DE ADESÃO", "NEGADO COMPROVANTE", "NEGADO BIO", "NEGADO RISCO", "NEGADO PRAZO", "NEGADO PELO SUPERVISOR", "NEGADO SEM RETORNO", "NEGADO CONTRATO", "CLIENTE DESISTIU", "CONTRATO APROVADO, AGUARDANDO ASSINATURA", "ASSINADO", "PDV GERADO"]
     opcoes_meio = ["", "Whatsapp", "Ligação - VOX", "Ligação - Whatsapp", "Fortics", "E-mail", "Meet"]
     setores_ind = ["PROSPECÇÃO PRÓPRIA", "PRÉ-VENDAS BCARD", "OUTROS SETORES", "LEADS ÍMPAR", "INDICAÇÃO INTERNA"]
-
+    
     @st.cache_data(show_spinner=False, ttl=300)
     def buscar_kpis_esteira(usuario_id, nivel, setor):
         try:
@@ -337,7 +582,8 @@ def mostrar_esteira_leads(supabase):
                 with cf2:
                     filtro_dt_fim = st.date_input("Últ. Atualização (Até)", value=st.session_state["esteira_filtros"].get("data_fim"), format="DD/MM/YYYY")
 
-            c_btn1, c_btn2, c_btn3 = st.columns([1, 1, 3])
+            # Disposição com o botão "Novo Lead" na extremidade direita oposta
+            c_btn1, c_btn2, c_espaco, c_btn_novo = st.columns([1.2, 1.2, 2.6, 1.5])
             with c_btn1:
                 if st.form_submit_button("Aplicar Filtros", type="primary", use_container_width=True):
                     st.session_state["esteira_filtros"] = {
@@ -359,7 +605,9 @@ def mostrar_esteira_leads(supabase):
                         st.session_state["esteira_pagina"] = 1
                         buscar_leads_paginados_e_filtrados.clear()
                         st.rerun()
-
+            with c_btn_novo:
+                if st.form_submit_button("➕ Novo Lead", type="secondary", use_container_width=True):
+                    modal_cadastrar_lead(supabase, uid, setor_usuario, buscar_leads_paginados_e_filtrados, buscar_kpis_esteira)
     # ==========================================
     # BUSCA DE DADOS (PAGINAÇÃO SERVER-SIDE)
     # ==========================================
@@ -496,7 +744,6 @@ def mostrar_esteira_leads(supabase):
                         elif not meio_contato.strip():
                             st.error("⚠️ O campo 'Meio de Contato' é obrigatório. Selecione uma opção válida.")
                         else:
-                            # Variável update_lead 100% protegida dentro do Else
                             # Variável update_lead 100% protegida dentro do Else
                             update_lead = {"status_atual": novo_status, "meio_fechamento": meio_contato, "updated_at": "now()"}
                             if novo_status == "REALIZADO - MEET":
