@@ -570,7 +570,7 @@ def mostrar_esteira_leads(supabase):
                 filtro_tentativa = st.number_input("Tentativa (Nº)", min_value=0, step=1, value=int(valor_tentativa))
 
             with f3:
-                todos_status = [""] + status_fase1 + status_fase2 + status_fase3
+                todos_status = ["", "PROSPECTAR"] + status_fase1 + status_fase2 + status_fase3
                 todos_status_unicos = list(dict.fromkeys(todos_status))
 
                 idx_status = todos_status_unicos.index(st.session_state["esteira_filtros"].get("status", "")) if st.session_state["esteira_filtros"].get("status", "") in todos_status_unicos else 0
