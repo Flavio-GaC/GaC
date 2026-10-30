@@ -37,8 +37,10 @@ def renderizar_linha_do_tempo(historicos, mapa_usuarios):
         status = h.get('status_novo', 'Atualizado')
         obs = h.get('observacao', '')
         tentativa = h.get('tentativa')
+        meio_hist = h.get('meio_contato')
 
         tent_str = f" | Tentativa: {tentativa}" if tentativa else ""
+        meio_str = f" | Canal: {meio_hist}" if meio_hist else ""
 
         html += f"""
 <div style="position: relative; margin-bottom: 20px;">
@@ -49,7 +51,7 @@ def renderizar_linha_do_tempo(historicos, mapa_usuarios):
             <span style="color: #a1a1aa; font-size: 12px; float: right;">{data_fmt}</span>
         </div>
         <div style="font-size: 13px; color: #e4e4e7; margin-bottom: 5px;">
-            👤 <b>{nome}</b> (Fase {fase}){tent_str}
+            👤 <b>{nome}</b> (Fase {fase}){tent_str}{meio_str}
         </div>
         <div style="font-size: 13px; color: #a1a1aa; font-style: italic;">
             "{obs}"
@@ -758,9 +760,15 @@ def mostrar_esteira_leads(supabase):
                                     try:
                                         supabase.table("leads").update(update_lead).eq("id", lead_id).execute()
                                         supabase.table("historico_leads").insert({
-                                            "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 1, 
-                                            "status_anterior": status_atual, "status_novo": novo_status,
-                                            "tentativa": nova_tentativa, "houve_contato": houve_contato, "observacao": obs
+                                            "lead_id": lead_id,
+                                            "usuario_id": uid,
+                                            "fase_na_epoca": 1,
+                                            "status_anterior": status_atual,
+                                            "status_novo": novo_status,
+                                            "tentativa": nova_tentativa,
+                                            "houve_contato": houve_contato,
+                                            "meio_contato": meio_contato,
+                                            "observacao": obs if obs else "Nova tentativa de contato."
                                         }).execute()
 
                                         buscar_leads_paginados_e_filtrados.clear()
@@ -808,9 +816,13 @@ def mostrar_esteira_leads(supabase):
                                     try:
                                         supabase.table("leads").update(update_lead).eq("id", lead_id).execute()
                                         supabase.table("historico_leads").insert({
-                                            "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 2, 
-                                            "status_anterior": status_atual, "status_novo": novo_status,
+                                            "lead_id": lead_id, 
+                                            "usuario_id": uid, 
+                                            "fase_na_epoca": 2, 
+                                            "status_anterior": status_atual, 
+                                            "status_novo": novo_status,
                                             "tentativa": nova_tentativa,
+                                            "meio_contato": meio_contato,
                                             "observacao": obs if obs else "Negociação atualizada."
                                         }).execute()
 
@@ -874,9 +886,13 @@ def mostrar_esteira_leads(supabase):
                                 try:
                                     supabase.table("leads").update(update_lead).eq("id", lead_id).execute()
                                     supabase.table("historico_leads").insert({
-                                        "lead_id": lead_id, "usuario_id": uid, "fase_na_epoca": 3, 
-                                        "status_anterior": status_atual, "status_novo": novo_status,
+                                        "lead_id": lead_id, 
+                                        "usuario_id": uid, 
+                                        "fase_na_epoca": 3, 
+                                        "status_anterior": status_atual, 
+                                        "status_novo": novo_status,
                                         "tentativa": nova_tentativa,
+                                        "meio_contato": meio_contato,
                                         "observacao": obs if obs else "Atualização de BKO"
                                     }).execute()
 
