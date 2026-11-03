@@ -359,6 +359,7 @@ def mostrar_esteira_leads(supabase):
             setor_usuario = ""
 
     status_fase1 = [
+    "CADASTRADO",
     "NÃO TEM INTERESSE - JÁ POSSUI CADASTRO",
     "PRIMEIRO CONTATO REALIZADO",
     "MEET AGENDADO",
@@ -383,6 +384,7 @@ def mostrar_esteira_leads(supabase):
     ]
 
     status_fase2 = [
+    "CADASTRADO",
     "SEM RETORNO",
     "COBRANÇA ADESÃO",
     "INDICAÇÃO LEAD - RETORNO AGENDADO - LIGAÇÃO",
