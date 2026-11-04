@@ -384,6 +384,7 @@ def mostrar_esteira_leads(supabase):
     ]
 
     status_fase2 = [
+    "NEGADO",
     "CADASTRADO",
     "SEM RETORNO",
     "COBRANÇA ADESÃO",
