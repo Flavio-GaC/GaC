@@ -385,8 +385,8 @@ def mostrar_esteira_leads(supabase):
 
     status_fase2 = [
     "NEGADO",
-    "CADASTRADO",
     "SEM RETORNO",
+    "CADASTRADO",
     "COBRANÇA ADESÃO",
     "INDICAÇÃO LEAD - RETORNO AGENDADO - LIGAÇÃO",
     "INDICAÇÃO LEAD - RETORNO AGENDADO - E-MAIL",
@@ -889,13 +889,12 @@ def mostrar_esteira_leads(supabase):
                                 try:
                                     supabase.table("leads").update(update_lead).eq("id", lead_id).execute()
                                     supabase.table("historico_leads").insert({
-                                        "lead_id": lead_id, 
-                                        "usuario_id": uid, 
-                                        "fase_na_epoca": 3, 
-                                        "status_anterior": status_atual, 
+                                        "lead_id": lead_id,
+                                        "usuario_id": uid,
+                                        "fase_na_epoca": 3,
+                                        "status_anterior": status_atual,
                                         "status_novo": novo_status,
                                         "tentativa": nova_tentativa,
-                                        "meio_contato": meio_contato,
                                         "observacao": obs if obs else "Atualização de BKO"
                                     }).execute()
 
