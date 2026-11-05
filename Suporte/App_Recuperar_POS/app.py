@@ -11,6 +11,7 @@ from routers.homepage import mostrar_home
 from routers.bolt.devolucao import mostrar_devolucao
 from routers.brasilcard.registro_meet import mostrar_meet
 from routers.brasilcard.dashboard import mostrar_dashboard
+from routers.brasilcard.extrair_leads import mostrar_extrair_leads
 from routers.cadastro_usuario import mostrar_novo_usuario
 from routers.lojistas import mostrar_lojistas
 from routers.brasilcard.upload_leads import mostrar_upload_leads
@@ -56,34 +57,37 @@ mapa_cargos = {
 }
 
 # --- ENVOLTÓRIOS DE PÁGINAS ---
-def render_login():
+def login():
     mostrar_login(supabase)
 
-def render_home(): 
+def home(): 
     mostrar_home(supabase)
 
-def render_devolucao_maquinas():
+def devolucao_maquinas():
     mostrar_devolucao(supabase)
 
-def render_meet():
+def meet():
     mostrar_meet(supabase)
 
-def render_usuario():
+def usuario():
     mostrar_novo_usuario(supabase)
 
-def render_lojistas():
+def lojistas():
     mostrar_lojistas(supabase)
 
-def render_dashboard():
+def dashboard():
     mostrar_dashboard(supabase)
 
-def render_upload_leads():
+def extrair_dados():
+    mostrar_extrair_leads(supabase)
+
+def upload_leads():
     mostrar_upload_leads(supabase)
 
-def render_esteira_leads():
+def esteira_leads():
     mostrar_esteira_leads(supabase)
 
-def render_notifications():
+def notifications():
     checar_notificacoes(supabase)
 
 
@@ -91,7 +95,7 @@ def render_notifications():
 if not st.session_state["usuario_logado"]:
     # Oculta a barra lateral caso o usuário não esteja logado
     st.markdown("<style>[data-testid='stSidebar'] {display: none;}</style>", unsafe_allow_html=True)
-    pg = st.navigation([st.Page(render_login, title="Login", icon="🔒")])
+    pg = st.navigation([st.Page(login, title="Login", icon="🔒")])
     pg.run()
     
 else:
@@ -129,55 +133,58 @@ else:
     # 3. Montagem do Menu Base (Sempre visível)
     paginas = {
         "Menu Principal": [
-            st.Page(render_home, title="Home", icon="📊", default=True),
-            st.Page(render_lojistas, title="Lojistas", icon="💼")
+            st.Page(home, title="Home", icon="📊", default=True),
+            st.Page(lojistas, title="Lojistas", icon="💼")
         ]
     }
 
     # 4. ACESSOS ADMINISTRATIVO
     if nivel_acesso <= 2:
         paginas["Administrativo"] = [
-            st.Page(render_usuario, title="Cadastrar Usuário", icon="👤"),
-            st.Page(render_dashboard, title="Dashboard", icon="🎯")
+            st.Page(usuario, title="Cadastrar Usuário", icon="👤"),
+            st.Page(dashboard, title="Dashboard", icon="🎯"),
+            st.Page(extrair_dados, title="Extrair dados", icon="📥")
             ]
         paginas["BrasilCard"] = [
-                                st.Page(render_meet, title="Meets", icon="🎥"),
-                                st.Page(render_upload_leads, title="Importar Leads", icon="🧲"),
-                                st.Page(render_esteira_leads, title="Esteira comercial", icon="🚀")
+                                st.Page(meet, title="Meets", icon="🎥"),
+                                st.Page(upload_leads, title="Importar Leads", icon="🧲"),
+                                st.Page(esteira_leads, title="Esteira comercial", icon="🚀")
+
                             ]
         paginas["Bolt"] = [
-                            st.Page(render_devolucao_maquinas, title="Devoluções", icon="📦")
+                            st.Page(devolucao_maquinas, title="Devoluções", icon="📦")
                         ]
     # ACESSOS BRASILCARD
     elif empresa_id == 1:
         if nivel_acesso <= 4:
             paginas["Administrativo"] = [
-                        st.Page(render_usuario, title="Cadastrar Usuário", icon="👤"),
-                        st.Page(render_dashboard, title="Dashboard Meets", icon="🎯"),
-                        st.Page(render_upload_leads, title="Importar Leads", icon="🧲")
+                        st.Page(usuario, title="Cadastrar Usuário", icon="👤"),
+                        st.Page(dashboard, title="Dashboard Meets", icon="🎯"),
+                        st.Page(upload_leads, title="Importar Leads", icon="🧲"),
+                        st.Page(extrair_dados, title="Extrair dados", icon="📥")
                         ]
             paginas["BrasilCard"] = [
-                        st.Page(render_meet, title="Meets", icon="🎥"),
-                        st.Page(render_esteira_leads, title="Esteira comercial", icon="🚀")
+                        st.Page(meet, title="Meets", icon="🎥"),
+                        st.Page(esteira_leads, title="Esteira comercial", icon="🚀")
                     ]
         else:
             paginas["BrasilCard"] = [
-                        st.Page(render_meet, title="Meets", icon="🎥"),
-                        st.Page(render_esteira_leads, title="Esteira comercial", icon="🚀")
+                        st.Page(meet, title="Meets", icon="🎥"),
+                        st.Page(esteira_leads, title="Esteira comercial", icon="🚀")
                     ]
     # ACESSOS BOLT
     elif empresa_id == 2:
         if nivel_acesso <= 4:
             paginas["Administrativo"] = [
-                                    st.Page(render_usuario, title="Cadastrar Usuário", icon="👤"),
-                                    st.Page(render_dashboard, title="Dashboard Meets", icon="🎯")
+                                    st.Page(usuario, title="Cadastrar Usuário", icon="👤"),
+                                    st.Page(dashboard, title="Dashboard Meets", icon="🎯")
                                     ]
             paginas["Bolt"] = [
-                        st.Page(render_devolucao_maquinas, title="Devoluções", icon="📦"),
+                        st.Page(devolucao_maquinas, title="Devoluções", icon="📦"),
                     ]
         else:
             paginas["Bolt"] = [
-                        st.Page(render_devolucao_maquinas, title="Devoluções", icon="📦"),
+                        st.Page(devolucao_maquinas, title="Devoluções", icon="📦"),
                     ]
             
     # 5. Inicializa o roteador multipáginas
