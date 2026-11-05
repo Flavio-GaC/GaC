@@ -361,7 +361,6 @@ def mostrar_esteira_leads(supabase):
     status_fase1 = [
     "CADASTRADO",
     "NÃO TEM INTERESSE - JÁ POSSUI CADASTRO",
-    "PRIMEIRO CONTATO REALIZADO",
     "MEET AGENDADO",
     "REAGENDAMENTO",
     "SEM RETORNO",
