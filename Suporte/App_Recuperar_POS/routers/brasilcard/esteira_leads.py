@@ -429,7 +429,7 @@ def mostrar_esteira_leads(supabase):
     "FECHADO - GEROU PDV"
     ]
 
-    status_fase3 = ["EM ANALISE", "CADASTRO REALIZADO", "AGUARDANDO PAGAMENTO PRIVATE/LINK", "AGUARDANDO PAGAMENTO DE ADESÃO", "NEGADO COMPROVANTE", "NEGADO BIO", "NEGADO RISCO", "NEGADO PRAZO", "NEGADO PELO SUPERVISOR", "NEGADO SEM RETORNO", "NEGADO CONTRATO", "CLIENTE DESISTIU", "CONTRATO APROVADO, AGUARDANDO ASSINATURA", "ASSINADO", "PDV GERADO"]
+    status_fase3 = ["EM ANALISE", "CADASTRO REALIZADO", "AGUARDANDO PAGAMENTO PRIVATE/LINK", "AGUARDANDO PAGAMENTO DE ADESÃO", "NEGADO COMPROVANTE", "NEGADO BIO", "NEGADO RISCO", "NEGADO PRAZO", "NEGADO PELO SUPERVISOR", "NEGADO SEM RETORNO", "NEGADO CONTRATO", "CLIENTE DESISTIU", "CONTRATO APROVADO, AGUARDANDO ASSINATURA", "ASSINADO", "FECHADO - GEROU PDV"]
     opcoes_meio = ["", "Whatsapp", "Ligação - VOX", "Ligação - Whatsapp", "Fortics", "E-mail", "Meet"]
     setores_ind = ["PROSPECÇÃO PRÓPRIA", "PRÉ-VENDAS BCARD", "OUTROS SETORES", "LEADS ÍMPAR", "INDICAÇÃO INTERNA"]
     
@@ -548,7 +548,7 @@ def mostrar_esteira_leads(supabase):
     if total_fila > 0:
         qtd_fase2 = len(df_kpi[df_kpi["fase_atual"] == 2])
         qtd_fase3 = len(df_kpi[df_kpi["fase_atual"] == 3])
-        qtd_pdv = len(df_kpi[df_kpi["status_atual"] == "PDV GERADO"])
+        qtd_pdv = len(df_kpi[df_kpi["status_atual"] == "FECHADO - GEROU PDV"])
     else:
         qtd_fase2 = qtd_fase3 = qtd_pdv = 0
 
@@ -684,7 +684,7 @@ def mostrar_esteira_leads(supabase):
             pode_editar = True
             cor_status = "🟠"
 
-        if status_atual == "PDV GERADO":
+        if status_atual == "FECHADO - GEROU PDV":
             cor_status = "🏆"
             if nivel_acesso > 2:
                 pode_editar = False
@@ -859,7 +859,7 @@ def mostrar_esteira_leads(supabase):
                         meio_fechamento = st.selectbox("Por onde fechou?", [""] + opcoes_meio, index=([""] + opcoes_meio).index(lead.get("meio_fechamento")) if lead.get("meio_fechamento") in ([""] + opcoes_meio) else 0, key=f"meiof_{lead_id}")
                         st.text_input("Tentativa (Nº)", value=f"{nova_tentativa}ª Tentativa", disabled=True, key=f"tent3_{lead_id}")
 
-                    if novo_status == "PDV GERADO":
+                    if novo_status == "FECHADO - GEROU PDV":
                         st.success("🎉 **PDV GERADO?** Ao salvar como PDV GERADO, o cadastro é concluído e o lead será bloqueado!")
 
                     obs = st.text_area("Observações Finais e Auditoria", value=lead.get("observacao_final", ""), key=f"obs3_{lead_id}")
@@ -878,7 +878,7 @@ def mostrar_esteira_leads(supabase):
                             update_lead["id_bko"] = uid
                             update_lead["responsavel_atual"] = uid
 
-                        if novo_status == "PDV GERADO":
+                        if novo_status == "FECHADO - GEROU PDV":
                             update_lead["data_pdv_gerado"] = "now()"
 
                         if verificar_duplo_clique(supabase, lead_id, update_lead):
@@ -905,7 +905,7 @@ def mostrar_esteira_leads(supabase):
                                     st.error(f"Ocorreu um erro no banco de dados ao salvar: {e}")
 
             else:
-                if status_atual == "PDV GERADO":
+                if status_atual == "FECHADO - GEROU PDV":
                     st.success("🏆 Este lead já completou a esteira (PDV Gerado). Edição restrita à gestão.")
                 else:
                     st.info("🔍 Este lead está em uma fase restrita a outro setor ou você não tem permissão para editá-lo.")
